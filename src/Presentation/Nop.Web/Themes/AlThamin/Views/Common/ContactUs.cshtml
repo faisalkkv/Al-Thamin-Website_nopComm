@@ -1,0 +1,121 @@
+@model ContactUsModel
+
+@using Nop.Core
+@using Nop.Core.Domain.Seo
+
+@inject IWebHelper webHelper
+@inject SeoSettings seoSettings
+
+@{
+    Layout = "_ColumnsOne";
+
+    //WordPress title was "Contact - Al Thamin Technologies"; the page lives at /contact/
+    NopHtml.AddTitleParts("Contact");
+    NopHtml.AddMetaDescriptionParts("Contact Al Thamin Technologies for LED walls, digital signage, kiosks and menu boards in Dubai, Sharjah and the UAE. Call or WhatsApp +971 52 184 7186.");
+    NopHtml.AppendPageCssClassParts("html-contact-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        NopHtml.AddCanonicalUrlParts($"{webHelper.GetCurrentRequestProtocol()}://{Context.Request.Host}/contact/", false);
+    }
+
+    //"Request a quote" links pass ?subject=… — start the enquiry with it
+    var subject = Context.Request.Query["subject"].ToString();
+    if (!Model.SuccessfullySent && string.IsNullOrEmpty(Model.Enquiry) && !string.IsNullOrWhiteSpace(subject))
+    {
+        Model.Enquiry = $"I'd like a quote for: {subject}\n\nLocation:\nScreen size / quantity:\nTimeline:";
+    }
+}
+<div class="page contact-page at-contact">
+    <section class="at-hero at-hero--service">
+        <div class="at-container at-hero__inner">
+            <div class="at-hero__copy">
+                <span class="at-kicker"><i></i>DUBAI · SHARJAH · ALL EMIRATES</span>
+                <div class="page-title"><h1 class="at-hero__title">Talk to a digital signage expert in Dubai or Sharjah</h1></div>
+                <p class="at-hero__lead">Tell us about your space and we will come back with options, a site survey date and a quote. Most enquiries get a reply the same working day.</p>
+                <div class="at-actions">
+                    <a class="at-btn at-btn--primary at-btn--lg" href="https://wa.me/971521847186" target="_blank" rel="noopener">WhatsApp +971 52 184 7186</a>
+                    <a class="at-btn at-btn--ghost at-btn--lg" href="tel:+971521847186">Call us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="page-body">
+        <section class="at-band at-band--light">
+            <div class="at-container at-split">
+                <div class="at-split__copy">
+                    <div class="at-prose">
+                        @* Editable intro: Admin › Content management › Topics › "ContactUs" *@
+                        @await Component.InvokeAsync(typeof(TopicBlockViewComponent), new { systemName = "ContactUs" })
+                    </div>
+                    <div class="at-direct">
+                        <a class="at-direct__item at-direct__item--green" href="https://wa.me/971521847186" target="_blank" rel="noopener"><span>FASTEST</span><strong>WhatsApp us</strong><em>+971 52 184 7186</em></a>
+                        <a class="at-direct__item" href="tel:+971521847186"><span>CALL</span><strong>+971 52 184 7186</strong><em>Mon–Fri 9:00 AM – 5:00 PM</em></a>
+                        <a class="at-direct__item" href="mailto:info@althamin.ae"><span>EMAIL · DUBAI</span><strong>info@althamin.ae</strong></a>
+                        <a class="at-direct__item" href="mailto:sharjah@althamin.ae"><span>EMAIL · SHARJAH</span><strong>sharjah@althamin.ae</strong></a>
+                    </div>
+                    <p class="at-direct__hours"><strong>Office visits:</strong> Monday – Friday, 9:00 AM – 5:00 PM (Saturday &amp; Sunday closed).<br /><strong>Support:</strong> daily, 8:30 AM – 9:30 PM.</p>
+                </div>
+                <div class="at-split__media">
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ContactUsTop, additionalData = Model })
+                    <div class="at-form-card">
+                        @if (Model.SuccessfullySent)
+                        {
+                            <div class="result">@Model.Result</div>
+                        }
+                        else
+                        {
+                            <h2>Send an enquiry</h2>
+                            @* posts to the legacy /contact/ URL (the Al Thamin plugin routes it to the contact form) *@
+                            <form action="/contact/" method="post" asp-antiforgery="true">
+                                <div asp-validation-summary="ModelOnly" class="message-error"></div>
+                                <section class="fieldset">
+                                    <div class="form-fields">
+                                        <div class="inputs">
+                                            <label asp-for="FullName" asp-postfix=":"></label>
+                                            <input asp-for="FullName" placeholder="@T("ContactUs.FullName.Hint")" class="fullname" />
+                                            <nop-required />
+                                            <span asp-validation-for="FullName"></span>
+                                        </div>
+                                        <div class="inputs">
+                                            <label asp-for="Email" asp-postfix=":"></label>
+                                            <input asp-for="Email" placeholder="@T("ContactUs.Email.Hint")" class="email" />
+                                            <nop-required />
+                                            <span asp-validation-for="Email"></span>
+                                        </div>
+                                        @if (Model.SubjectEnabled)
+                                        {
+                                            <div class="inputs">
+                                                <label asp-for="Subject" asp-postfix=":"></label>
+                                                <input asp-for="Subject" placeholder="@T("ContactUs.Subject.Hint")" class="subject" />
+                                                <nop-required />
+                                                <span asp-validation-for="Subject"></span>
+                                            </div>
+                                        }
+                                        <div class="inputs">
+                                            <label asp-for="Enquiry" asp-postfix=":"></label>
+                                            <textarea asp-for="Enquiry" placeholder="@T("ContactUs.Enquiry.Hint")" class="enquiry"></textarea>
+                                            <nop-required />
+                                            <span asp-validation-for="Enquiry"></span>
+                                        </div>
+                                        @if (Model.DisplayCaptcha)
+                                        {
+                                            <nop-captcha />
+                                        }
+                                    </div>
+                                </section>
+                                <section class="buttons">
+                                    <button type="submit" name="send-email" class="button-1 contact-us-button">@T("ContactUs.Button")</button>
+                                </section>
+                            </form>
+                        }
+                    </div>
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ContactUsBottom, additionalData = Model })
+                </div>
+            </div>
+        </section>
+
+        @{ await Html.RenderPartialAsync("_AlThamin.Offices"); }
+    </div>
+</div>

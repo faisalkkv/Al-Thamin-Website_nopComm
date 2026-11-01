@@ -1,0 +1,34 @@
+@model IList<CategoryModel>
+
+@using Nop.Core.Domain.Catalog
+
+@* Service cards. Admin › Catalog › Categories › tick "Show on home page"; order with "Display order".
+   The card text uses the first ~140 characters of the category description. *@
+@if (Model.Count > 0)
+{
+    <div class="at-cards">
+        @{ var i = 0; }
+        @foreach (var item in Model)
+        {
+            i++;
+            var url = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = item.SeName });
+            //the meta description is written as a summary; fall back to the start of the page copy
+            var plain = System.Text.RegularExpressions.Regex.Replace(!string.IsNullOrEmpty(item.MetaDescription) ? item.MetaDescription : item.Description ?? string.Empty, "<[^>]+>", " ");
+            plain = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(plain, "\\s+", " ")).Trim();
+            var teaser = plain.Length > 140 ? plain.Substring(0, plain.LastIndexOf(' ', 140) > 0 ? plain.LastIndexOf(' ', 140) : 140) + "…" : plain;
+            <a class="at-card" href="@url" title="@item.PictureModel?.Title">
+                <span class="at-card__top"><span class="at-card__num">@i.ToString("00")</span><span class="at-card__arrow" aria-hidden="true">↗</span></span>
+                @if (!string.IsNullOrEmpty(item.PictureModel?.ImageUrl) && !item.PictureModel.ImageUrl.Contains("default-image"))
+                {
+                    <img class="at-card__img" src="@item.PictureModel.ImageUrl" alt="@item.PictureModel.AlternateText" loading="lazy" />
+                }
+                <h3 class="at-card__title">@item.Name</h3>
+                @if (!string.IsNullOrEmpty(teaser))
+                {
+                    <p class="at-card__text">@teaser</p>
+                }
+                <span class="at-card__path">@url</span>
+            </a>
+        }
+    </div>
+}

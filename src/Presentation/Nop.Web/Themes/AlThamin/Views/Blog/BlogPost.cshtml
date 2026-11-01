@@ -1,0 +1,200 @@
+@model BlogPostModel
+
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Blogs
+@using Nop.Core.Domain.Seo
+@using Nop.Services.Blogs
+@using Nop.Services.Seo
+
+@inject IWebHelper webHelper
+@inject SeoSettings seoSettings
+@inject IBlogService blogService
+@inject IStoreContext storeContext
+@inject IWorkContext workContext
+@inject IUrlRecordService urlRecordService
+
+@*
+    Blog post (/blog/{slug}/) and case study (/case-study/{slug}/, any post tagged "case-study").
+    Body = the WordPress post migrated as-is; H2/H3 get anchors and feed the "In this article" list.
+    Comments are switched off for this site.
+*@
+@functions {
+    static string TagSlug(string tag) => Regex.Replace((tag ?? string.Empty).Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+    static string TagUrl(string tag) => TagSlug(tag) == "case-study" ? "/category/case-study/" : $"/tag/{TagSlug(tag)}/";
+    static string FirstImage(string html) => Regex.Match(html ?? string.Empty, "<img[^>]+src=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+}
+@{
+    Layout = "_ColumnsOne";
+
+    NopHtml.AddTitleParts(!string.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Title);
+    NopHtml.AddMetaDescriptionParts(Model.MetaDescription);
+    NopHtml.AddMetaKeywordParts(Model.MetaKeywords);
+    NopHtml.AppendPageCssClassParts("html-blogpost-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+
+    var isCaseStudy = Model.Tags.Any(t => TagSlug(t) == "case-study");
+    var origin = $"{webHelper.GetCurrentRequestProtocol()}://{Context.Request.Host}";
+    var postUrl = (await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = Model.SeName }, webHelper.GetCurrentRequestProtocol())).ToLowerInvariant();
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        NopHtml.AddCanonicalUrlParts(postUrl, false);
+    }
+
+    var image = FirstImage(Model.Body);
+    var imageUrl = string.IsNullOrEmpty(image) ? null : (image.StartsWith("/") ? origin + image : image);
+    //social preview (the og/twitter tags are written by Shared/Head.cshtml)
+    ViewData["OgImage"] = imageUrl;
+    ViewData["OgType"] = "article";
+
+    //anchors for the table of contents
+    var toc = new List<(string Id, string Text, bool Sub)>();
+    var body = Regex.Replace(Model.Body ?? string.Empty, "<(h2|h3)>(.*?)</\\1>", match =>
+    {
+        var text = Regex.Replace(match.Groups[2].Value, "<[^>]+>", string.Empty);
+        var id = TagSlug(System.Net.WebUtility.HtmlDecode(text));
+        if (string.IsNullOrEmpty(id) || toc.Any(t => t.Id == id))
+            id += "-" + (toc.Count + 1);
+        toc.Add((id, System.Net.WebUtility.HtmlDecode(text), match.Groups[1].Value == "h3"));
+        return $"<{match.Groups[1].Value} id=\"{id}\">{match.Groups[2].Value}</{match.Groups[1].Value}>";
+    }, RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+    //Article + BreadcrumbList JSON-LD
+    var listUrl = isCaseStudy ? "/category/case-study/" : "/category/blog/";
+    NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "BlogPosting",
+        ["headline"] = Model.Title,
+        ["description"] = Model.MetaDescription ?? string.Empty,
+        ["image"] = imageUrl ?? string.Empty,
+        ["datePublished"] = Model.CreatedOn.ToString("yyyy-MM-dd"),
+        ["mainEntityOfPage"] = postUrl,
+        ["author"] = new Dictionary<string, object> { ["@id"] = origin + "/#organization" },
+        ["publisher"] = new Dictionary<string, object> { ["@id"] = origin + "/#organization" }
+    }));
+    NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "BreadcrumbList",
+        ["itemListElement"] = new object[]
+        {
+            new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 1, ["name"] = "Resources", ["item"] = origin + "/resources/" },
+            new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 2, ["name"] = isCaseStudy ? "Case studies" : "Blog", ["item"] = origin + listUrl },
+            new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 3, ["name"] = Model.Title, ["item"] = postUrl }
+        }
+    }));
+
+    //keep reading: the newest other posts
+    var store = await storeContext.GetCurrentStoreAsync();
+    var language = await workContext.GetWorkingLanguageAsync();
+    var others = (await blogService.GetAllBlogPostsAsync(store.Id, language.Id, pageSize: 4)).Where(p => p.Id != Model.Id).Take(3).ToList();
+
+    var tags = Model.Tags.Where(t => TagSlug(t) != "case-study").ToList();
+}
+
+<div class="page blogpost-page at-post-page @(isCaseStudy ? "at-post-page--case" : null)">
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogPostPageTop, additionalData = Model })
+
+    <header class="at-post-head">
+        <div class="at-container at-post-head__inner">
+            <nav class="at-breadcrumb @(isCaseStudy ? null : "at-breadcrumb--light")" aria-label="Breadcrumb">
+                <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">Home</a>
+                <span aria-hidden="true">/</span>
+                <a href="/resources/">Resources</a>
+                <span aria-hidden="true">/</span>
+                <a href="@listUrl">@(isCaseStudy ? "Case studies" : "Blog")</a>
+            </nav>
+            <span class="at-eyebrow @(isCaseStudy ? null : "at-eyebrow--deep")">@(isCaseStudy ? "CASE STUDY" : "BLOG")@(tags.Count > 0 ? " · " + tags[0].ToUpperInvariant() : null)</span>
+            <div class="page-title"><h1>@Model.Title</h1></div>
+            @if (!string.IsNullOrEmpty(Model.MetaDescription))
+            {
+                <p class="at-post-head__lead">@Model.MetaDescription</p>
+            }
+            <div class="at-post-head__meta">
+                <span class="at-avatar" aria-hidden="true">AT</span>
+                <span><strong>Al Thamin team</strong><br /><time datetime="@Model.CreatedOn.ToString("yyyy-MM-dd")">@Model.CreatedOn.ToString("d MMMM yyyy")</time></span>
+            </div>
+        </div>
+    </header>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogPostPageBeforeBody, additionalData = Model })
+
+    <section class="at-band at-band--white">
+        <div class="at-container at-post-body">
+            <aside class="at-toc">
+                @if (toc.Count > 1)
+                {
+                    <span class="at-toc__title">IN THIS ARTICLE</span>
+                    <nav aria-label="In this article">
+                        @foreach (var entry in toc)
+                        {
+                            <a class="@(entry.Sub ? "is-sub" : null)" href="#@entry.Id">@entry.Text</a>
+                        }
+                    </nav>
+                }
+                <div class="at-toc__share">
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=@Uri.EscapeDataString(postUrl)" target="_blank" rel="noopener" aria-label="Share on LinkedIn">in</a>
+                    <a href="https://wa.me/?text=@Uri.EscapeDataString(Model.Title + " " + postUrl)" target="_blank" rel="noopener" aria-label="Share on WhatsApp">wa</a>
+                </div>
+            </aside>
+            <article class="at-prose at-post-body__text">
+                @Html.Raw(body)
+
+                <div class="at-inline-cta">
+                    <strong>@(isCaseStudy ? "Want results like these?" : "Planning digital signage for your business?")</strong>
+                    <a class="at-btn at-btn--primary" href="/contact/">Talk to Al Thamin</a>
+                </div>
+
+                @if (tags.Count > 0)
+                {
+                    <div class="at-chips at-chips--small at-post-tags">
+                        @foreach (var tag in tags)
+                        {
+                            <a class="at-chip" href="@TagUrl(tag)">#@TagSlug(tag)</a>
+                        }
+                    </div>
+                }
+            </article>
+        </div>
+    </section>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogPostPageBeforeComments, additionalData = Model })
+
+    @if (others.Count > 0)
+    {
+        <section class="at-band at-band--light">
+            <div class="at-container">
+                <div class="at-section-head">
+                    <div><h2 class="at-h2 at-h2--sm">Keep reading</h2></div>
+                    <a class="at-link" href="/resources/">All resources →</a>
+                </div>
+                <div class="at-postcards at-postcards--3">
+                    @foreach (var other in others)
+                    {
+                        var otherUrl = await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = await urlRecordService.GetSeNameAsync(other, other.LanguageId, ensureTwoPublishedLanguages: false) });
+                        var otherImage = FirstImage(other.Body);
+                        var otherIsCase = (await blogService.ParseTagsAsync(other)).Any(t => TagSlug(t) == "case-study");
+                        <article class="at-postcard">
+                            <a href="@otherUrl">
+                                <div class="at-postcard__media">
+                                    @if (!string.IsNullOrEmpty(otherImage))
+                                    {
+                                        <img src="@otherImage" alt="" loading="lazy" />
+                                    }
+                                </div>
+                                <div class="at-postcard__copy">
+                                    <span class="at-postcard__meta">@(otherIsCase ? "CASE STUDY" : "BLOG")</span>
+                                    <h2>@other.Title</h2>
+                                </div>
+                            </a>
+                        </article>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogPostPageAfterComments, additionalData = Model })
+</div>

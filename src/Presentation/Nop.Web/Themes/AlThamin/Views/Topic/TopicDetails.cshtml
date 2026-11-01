@@ -1,0 +1,238 @@
+@model TopicModel
+
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Seo
+@using Nop.Core.Domain.Topics
+
+@inject IWebHelper webHelper
+@inject SeoSettings seoSettings
+
+@*
+    Landing-page template for topics (About, Software, Gym screens, Meeting room displays, legal pages…).
+    Hero (title + meta description) → migrated body copy with a quote card → extra sections chosen by SystemName.
+*@
+@{
+    var isPopup = ViewBag.IsPopup ?? false;
+    if (!isPopup)
+    {
+        Layout = "_ColumnsOne";
+    }
+
+    if (!Model.IsPasswordProtected)
+    {
+        NopHtml.AddTitleParts(!string.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Title);
+        NopHtml.AddMetaDescriptionParts(Model.MetaDescription);
+        NopHtml.AddMetaKeywordParts(Model.MetaKeywords);
+    }
+
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        var topicUrl = (await NopUrl.RouteGenericUrlAsync<Topic>(new { SeName = Model.SeName }, webHelper.GetCurrentRequestProtocol())).ToLowerInvariant();
+        NopHtml.AddCanonicalUrlParts(topicUrl, seoSettings.QueryStringInCanonicalUrlsEnabled);
+    }
+
+    NopHtml.AppendPageCssClassParts("html-topic-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+
+    var system = Model.SystemName ?? string.Empty;
+    var eyebrow = system switch
+    {
+        "AboutUs" => "ABOUT AL THAMIN TECHNOLOGIES",
+        "DigitalSignageSoftware" => "SCREENDRIVE · DIGITAL SIGNAGE CMS",
+        "GymPromotionScreens" => "FOR GYMS & FITNESS CLUBS",
+        "MeetingRoomDisplay" => "FOR OFFICES & MEETING ROOMS",
+        _ => null
+    };
+    var isLanding = eyebrow is not null;
+
+    //the first image of the body becomes the hero picture
+    var body = Model.Body ?? string.Empty;
+    var heroImage = Regex.Match(body, "<img[^>]+>", RegexOptions.IgnoreCase);
+    var heroSrc = heroImage.Success ? Regex.Match(heroImage.Value, "src=\"([^\"]+)\"").Groups[1].Value : null;
+    var heroAlt = heroImage.Success ? Regex.Match(heroImage.Value, "alt=\"([^\"]*)\"").Groups[1].Value : null;
+    ViewData["OgImage"] = heroSrc;
+    if (isLanding && heroImage.Success)
+    {
+        body = body.Remove(heroImage.Index, heroImage.Length);
+    }
+
+    var waText = "https://wa.me/971521847186?text=" + Uri.EscapeDataString("Hi Al Thamin, I'm interested in " + Model.Title);
+}
+
+@if (isPopup)
+{
+    <div class="at-prose">
+        <h1>@Model.Title</h1>
+        @Html.Raw(Model.Body)
+    </div>
+    return;
+}
+
+<div class="page topic-page at-topic" id="ph-topic">
+
+    <section class="at-hero at-hero--service">
+        <div class="at-container">
+            <nav class="at-breadcrumb" aria-label="Breadcrumb">
+                <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">Home</a>
+                <span aria-hidden="true">/</span>
+                <strong aria-current="page">@Model.Title</strong>
+            </nav>
+            <div class="at-hero__inner">
+                <div class="at-hero__copy">
+                    @if (eyebrow is not null)
+                    {
+                        <span class="at-kicker"><i></i>@eyebrow</span>
+                    }
+                    <div class="page-title"><h1 class="at-hero__title">@Model.Title</h1></div>
+                    @if (!string.IsNullOrEmpty(Model.MetaDescription))
+                    {
+                        <p class="at-hero__lead">@Model.MetaDescription</p>
+                    }
+                    @if (isLanding)
+                    {
+                        <div class="at-actions">
+                            <a class="at-btn at-btn--primary at-btn--lg" href="/contact/">@(system == "DigitalSignageSoftware" ? "Book a live demo" : system == "AboutUs" ? "Talk to our team" : "Plan my screens")</a>
+                            <a class="at-btn at-btn--ghost at-btn--lg" href="@waText" target="_blank" rel="noopener">WhatsApp us</a>
+                        </div>
+                    }
+                </div>
+                @if (system == "AboutUs")
+                {
+                    <div class="at-hero__media at-bigyear" aria-hidden="true">2000</div>
+                }
+                else if (!string.IsNullOrEmpty(heroSrc) && isLanding)
+                {
+                    <div class="at-hero__media">
+                        <div class="at-screen at-screen--photo"><img src="@heroSrc" alt="@heroAlt" fetchpriority="high" /></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @if (system == "AboutUs")
+    {
+        <section class="at-proof">
+            <div class="at-container at-proof__grid">
+                <div><strong>Since 2000</strong><span>Two decades of UAE technology projects</span></div>
+                <div><strong>2 offices</strong><span>Deira, Dubai · Al Qasimia, Sharjah</span></div>
+                <div><strong>End to end</strong><span>Hardware · software · install · maintenance</span></div>
+                <div><strong>Screendrive</strong><span>Our own signage software</span></div>
+            </div>
+        </section>
+    }
+
+    @* ===== BODY (migrated SEO copy) ===== *@
+    <section class="at-band at-band--white">
+        <div class="at-container at-product__body">
+            <div class="at-prose topic-block-body">
+                @Html.Raw(body)
+            </div>
+            @if (isLanding)
+            {
+                <aside class="at-quote-card">
+                    <h2>@(system == "DigitalSignageSoftware" ? "See Screendrive on your screens" : "Get expert advice")</h2>
+                    <p>Free consultation and site survey in Dubai &amp; Sharjah.</p>
+                    <a class="at-btn at-btn--primary at-btn--lg" href="/contact/">Contact us</a>
+                    <a class="at-quote-card__phone" href="tel:+971521847186">+971 52 184 7186</a>
+                </aside>
+            }
+        </div>
+    </section>
+
+    @if (system == "DigitalSignageSoftware")
+    {
+        <section class="at-band at-band--light">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow at-eyebrow--deep">WORKS WITH</span>
+                    <h2 class="at-h2 at-h2--sm">The screens you already have — or the ones we install</h2>
+                </div>
+                <div class="at-linkgrid">
+                    <a href="/service/led-wall-solutions/">LED walls <span>→</span></a>
+                    <a href="/service/digital-menu-solutions-dubai/">Digital menu boards <span>→</span></a>
+                    <a href="/service/digital-kiosks-uae/">Kiosks &amp; LED posters <span>→</span></a>
+                    <a href="/service/elevator-lobby-screens-installation-in-uae/">Lift &amp; lobby screens <span>→</span></a>
+                    <a href="/service/office-communication-display-screens-in-dubai-uae/">Office displays <span>→</span></a>
+                    <a href="/service/hotel-digital-signage-solutions-in-uae/">Hotel signage <span>→</span></a>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (system == "GymPromotionScreens")
+    {
+        <section class="at-band at-band--panel">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow">WHERE SCREENS GO</span>
+                    <h2 class="at-h2 at-h2--sm">Five places a gym screen earns its keep</h2>
+                </div>
+                <ol class="at-steps">
+                    <li><span>01 · LED POSTER / KIOSK</span><h3>Entrance</h3><p>Welcome, promotions and today’s classes.</p></li>
+                    <li><span>02 · WALL DISPLAY</span><h3>Reception</h3><p>Renewals, PT packages, café menu.</p></li>
+                    <li><span>03 · LED WALL</span><h3>Cardio floor</h3><p>Workout loops, sponsor ads, music video.</p></li>
+                    <li><span>04 · SMALL DISPLAY</span><h3>Studio doors</h3><p>Next class, instructor and spaces left.</p></li>
+                </ol>
+            </div>
+        </section>
+    }
+
+    @if (system == "AboutUs")
+    {
+        <section class="at-band at-band--light">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow at-eyebrow--deep">WHAT WE DO</span>
+                    <h2 class="at-h2 at-h2--sm">Five practices, one team</h2>
+                </div>
+                <div class="at-cards at-cards--compact">
+                    <a class="at-card" href="/service/"><span class="at-card__num">01</span><h3 class="at-card__title">Digital signage</h3><p class="at-card__text">LED walls, kiosks, menu boards and lift screens.</p></a>
+                    <div class="at-card"><span class="at-card__num">02</span><h3 class="at-card__title">IT infrastructure</h3><p class="at-card__text">Networking and cabling for offices and sites.</p></div>
+                    <div class="at-card"><span class="at-card__num">03</span><h3 class="at-card__title">Server solutions</h3><p class="at-card__text">Servers and storage, supplied and set up.</p></div>
+                    <div class="at-card"><span class="at-card__num">04</span><h3 class="at-card__title">Hardware</h3><p class="at-card__text">Displays, media players and computing hardware.</p></div>
+                    <a class="at-card" href="/digital-signage-software-in-dubai/"><span class="at-card__num">05</span><h3 class="at-card__title">Software</h3><p class="at-card__text">Screendrive digital signage software.</p></a>
+                </div>
+            </div>
+        </section>
+        @await Html.PartialAsync("_AlThamin.Offices")
+    }
+
+    @if (system is "GymPromotionScreens" or "MeetingRoomDisplay")
+    {
+        <section class="at-band at-band--light at-band--tight">
+            <div class="at-container">
+                <h2 class="at-h2 at-h2--sm">Signage for other spaces</h2>
+                <div class="at-chips">
+                    @if (system != "MeetingRoomDisplay")
+                    {
+                        <a class="at-chip" href="/meeting-room-disply-in-uae/">Meeting room displays</a>
+                    }
+                    @if (system != "GymPromotionScreens")
+                    {
+                        <a class="at-chip" href="/gym-advertising-and-promotion-screens-in-dubai-uae/">Gyms</a>
+                    }
+                    <a class="at-chip" href="/service/hotel-digital-signage-solutions-in-uae/">Hotels</a>
+                    <a class="at-chip" href="/service/campus-digital-signage-solutions-in-dubai/">Campuses</a>
+                    <a class="at-chip" href="/service/office-communication-display-screens-in-dubai-uae/">Offices</a>
+                    <a class="at-chip" href="/service/digital-menu-solutions-dubai/">Restaurants</a>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (isLanding && system != "AboutUs")
+    {
+        <section class="at-cta">
+            <div class="at-container at-cta__inner">
+                <h2>@(system == "DigitalSignageSoftware" ? "See Screendrive on your own screens" : "Free site visit in Dubai or Sharjah")</h2>
+                <div class="at-actions">
+                    <a class="at-btn at-btn--dark at-btn--lg" href="/contact/">@(system == "DigitalSignageSoftware" ? "Book a live demo" : "Book a visit")</a>
+                    <a class="at-btn at-btn--outline-dark at-btn--lg" href="tel:+971521847186">Call +971 52 184 7186</a>
+                </div>
+            </div>
+        </section>
+    }
+
+</div>

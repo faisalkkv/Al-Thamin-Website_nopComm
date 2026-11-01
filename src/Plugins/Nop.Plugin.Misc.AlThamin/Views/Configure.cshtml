@@ -1,0 +1,36 @@
+@model string
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+<form asp-controller="AlThamin" asp-action="Configure" method="post">
+    <div class="cards-group">
+        <div class="card card-default">
+            <div class="card-body">
+                <h4>Legacy URLs (always on while the plugin is installed)</h4>
+                <ul>
+                    <li>Service categories answer at <code>/service/{category}/</code>, their products at <code>/service/{category}/{product}/</code>.</li>
+                    <li>Topics answer at <code>/{slug}/</code>; blog posts at <code>/blog/{slug}/</code>, or <code>/case-study/{slug}/</code> when tagged <code>case-study</code>.</li>
+                    <li><code>/resources/</code>, <code>/blog-2/</code>, <code>/category/blog/</code>, <code>/case-study/</code>, <code>/category/case-study/</code>, <code>/tag/{tag}/</code> and <code>/contact/</code> are served without a redirect.</li>
+                    <li>nopCommerce-style addresses (<code>/signage-led-screen</code>, <code>/contactus</code>, <code>/blog</code>, no trailing slash…) are 301-redirected to the legacy path.</li>
+                    <li><code>/sitemap.xml</code> lists the legacy URLs only. WordPress sitemaps, author and date archives are 301-redirected.</li>
+                </ul>
+                <p>To keep a URL when you create a page, give a category the slug of the last URL segment and put it under <strong>Services</strong>; give a product that slug and map it to its category.</p>
+            </div>
+        </div>
+        <div class="card card-default">
+            <div class="card-body">
+                <h4>Import althamin.ae content</h4>
+                <p>Creates or updates the 9 service categories, 11 products, topics (About, Software, Gym, Meeting room, homepage text, contact intro), the 4 blog posts / case study,
+                    the main and footer menus, and the store/SEO settings. Pages are matched by slug, so running it again overwrites edits made in admin.</p>
+                <button type="submit" name="import" class="btn btn-primary" onclick="return confirm('Import / overwrite the Al Thamin content?');">
+                    <i class="fas fa-file-import"></i> Import content
+                </button>
+                @if (!string.IsNullOrEmpty(Model))
+                {
+                    <pre style="margin-top:16px;max-height:420px;overflow:auto">@Model</pre>
+                }
+            </div>
+        </div>
+    </div>
+</form>

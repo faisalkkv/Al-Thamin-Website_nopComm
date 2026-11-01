@@ -1,0 +1,33 @@
+@{
+    Layout = "_Root.Head";
+}
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BodyStartHtmlTagAfter })
+@{ await Html.RenderPartialAsync("_Notifications"); }
+@{ await Html.RenderPartialAsync("_JavaScriptDisabledWarning"); }
+@* LocalBusiness / Organization structured data for both offices (edit the partial to change NAP) *@
+@{ await Html.RenderPartialAsync("_AlThamin.Schema"); }
+<div class="master-wrapper-page at-site">
+    @await Component.InvokeAsync(typeof(AdminHeaderLinksViewComponent))
+    @{ await Html.RenderPartialAsync("_Header"); }
+    <main class="master-wrapper-content" id="main">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ContentBefore })
+
+        @if (IsSectionDefined("Breadcrumb"))
+        {
+            @RenderSection("Breadcrumb")
+        }
+        <div class="master-column-wrapper">
+            @RenderBody()
+        </div>
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ContentAfter })
+    </main>
+    @await Component.InvokeAsync(typeof(FooterViewComponent))
+</div>
+
+@* Floating WhatsApp button (mobile + desktop) *@
+<a class="at-wa-float" href="https://wa.me/971521847186" target="_blank" rel="noopener" aria-label="Chat with Al Thamin on WhatsApp">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.5A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+</a>
+
+@await Component.InvokeAsync(typeof(EuCookieLawViewComponent))
+@await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BodyEndHtmlTagBefore })

@@ -1,0 +1,21 @@
+@model IList<ProductOverviewModel>
+
+@using Nop.Core.Domain.Catalog
+
+@* LED range tiles. Admin › Catalog › Products › tick "Show on home page".
+   The small caption under each name is the product's Short description. *@
+@if (Model.Count > 0)
+{
+    <div class="at-tiles">
+        @foreach (var item in Model)
+        {
+            <a class="at-tile" href="@(await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.SeName }))">
+                <span class="at-tile__name">@item.Name</span>
+                @if (!string.IsNullOrEmpty(item.ShortDescription))
+                {
+                    <span class="at-tile__tag">@Html.Raw(item.ShortDescription)</span>
+                }
+            </a>
+        }
+    </div>
+}

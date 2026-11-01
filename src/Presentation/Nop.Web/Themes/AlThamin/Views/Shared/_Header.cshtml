@@ -1,0 +1,40 @@
+<header class="header at-header">
+    <a class="skip" href="#main">@T("Header.SkipNavigation.Text")</a>
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderBefore })
+
+    @* Utility bar: NAP for local SEO + store selectors / account links *@
+    <div class="at-utility">
+        <div class="at-container at-utility__inner">
+            <div class="at-utility__nap">
+                <span>DUBAI · Deira Business Centre</span>
+                <span>SHARJAH · Al Qasimia</span>
+            </div>
+            <div class="at-utility__right">
+                @* lead-generation site: no account / cart / currency links. The language selector shows only when a 2nd language is published. *@
+                <div class="header-selectors-wrapper">
+                    @await Component.InvokeAsync(typeof(LanguageSelectorViewComponent))
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderSelectors })
+                </div>
+                <a class="at-utility__mail" href="mailto:info@althamin.ae">info@althamin.ae</a>
+                <a class="at-utility__phone" href="tel:+971521847186">CALL / WHATSAPP +971 52 184 7186</a>
+            </div>
+        </div>
+    </div>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderMiddle })
+
+    <div class="at-header__main">
+        <div class="at-container at-header__inner">
+            <div class="header-logo">
+                @await Component.InvokeAsync(typeof(LogoViewComponent))
+            </div>
+            <div class="header-menu at-nav">
+                @await Component.InvokeAsync(typeof(MainMenuViewComponent))
+            </div>
+            <div class="at-header__actions">
+                <a class="at-btn at-btn--primary" href="/contact/">Request a quote</a>
+            </div>
+        </div>
+    </div>
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HeaderAfter })
+</header>

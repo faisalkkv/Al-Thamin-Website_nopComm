@@ -1,0 +1,245 @@
+@using Nop.Core
+@using Nop.Core.Domain.Blogs
+@using Nop.Services.Localization
+@using Nop.Web.Factories
+@inject ILocalizationService localizationService
+@inject IStoreContext storeContext
+@inject BlogSettings blogSettings
+@inject IBlogModelFactory blogModelFactory
+@inject Nop.Core.Domain.Seo.SeoSettings seoSettings
+
+@{
+    Layout = "_ColumnsOne";
+
+    var homepageTitle = await localizationService.GetLocalizedAsync(await storeContext.GetCurrentStoreAsync(), s => s.HomepageTitle);
+    if (!string.IsNullOrEmpty(homepageTitle))
+    {
+        NopHtml.AddTitleParts(homepageTitle);
+    }
+
+    var homepageDescription = await localizationService.GetLocalizedAsync(await storeContext.GetCurrentStoreAsync(), s => s.HomepageDescription);
+    if (!string.IsNullOrEmpty(homepageDescription))
+    {
+        NopHtml.AddMetaDescriptionParts(homepageDescription);
+    }
+
+    NopHtml.AppendPageCssClassParts("html-home-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        NopHtml.AddCanonicalUrlParts($"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.PathBase}/", false);
+    }
+
+    // Latest blog posts / case studies
+    IList<BlogPostModel> latestPosts = new List<BlogPostModel>();
+    if (blogSettings.Enabled)
+    {
+        var blogList = await blogModelFactory.PrepareBlogPostListModelAsync(new BlogPagingFilteringModel { PageSize = 4, PageNumber = 1 });
+        latestPosts = blogList.BlogPosts;
+    }
+
+    // Homepage FAQ — rendered on the page AND as FAQPage structured data (keep both in sync automatically)
+    var faqs = new List<(string Q, string A)>
+    {
+        ("Do you install LED screens and digital signage in Sharjah?", "Yes. We have an office in Al Qasimia, Sharjah, alongside our Dubai office in Deira, so we survey, install and support projects across Sharjah."),
+        ("How much does an LED wall cost in Dubai?", "Price depends on size, pixel pitch, indoor or outdoor rating and mounting. Share your location and dimensions and we will send a detailed quote."),
+        ("Which pixel pitch should I choose?", "It depends on how close people stand. Close-viewing boardrooms suit fine pitches; outdoor façades seen from the road suit larger pitches. We recommend one after the site survey."),
+        ("Can I update menu prices or content remotely?", "Yes. Screendrive, our digital signage software, lets you schedule and update content on one screen or a whole network from a browser."),
+        ("Do you offer maintenance contracts?", "Yes — regular system checks, updates, troubleshooting and on-site support for digital signage across the UAE.")
+    };
+    var faqJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "FAQPage",
+        ["mainEntity"] = faqs.Select(f => new Dictionary<string, object>
+        {
+            ["@type"] = "Question",
+            ["name"] = f.Q,
+            ["acceptedAnswer"] = new Dictionary<string, object> { ["@type"] = "Answer", ["text"] = f.A }
+        }).ToList()
+    });
+}
+<div class="page home-page">
+    <div class="page-body">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageTop })
+
+        @* ===== HERO ===== *@
+        <section class="at-hero">
+            <div class="at-container at-hero__inner">
+                <div class="at-hero__copy">
+                    <span class="at-kicker"><i></i>DIGITAL SIGNAGE · SINCE 2000 · DUBAI &amp; SHARJAH</span>
+                    <h1 class="at-hero__title">Digital Signage &amp; LED Screens in Dubai, Sharjah and across the UAE</h1>
+                    <p class="at-hero__lead">Indoor and outdoor LED walls, digital menus, kiosks and lift screens — supplied, installed, run on our Screendrive software and maintained by one local team.</p>
+                    <div class="at-actions">
+                        <a class="at-btn at-btn--primary at-btn--lg" href="https://wa.me/971521847186" target="_blank" rel="noopener">WhatsApp us</a>
+                        <a class="at-btn at-btn--ghost at-btn--lg" href="/service/">Explore solutions →</a>
+                    </div>
+                </div>
+                <div class="at-hero__media">
+                    @* Install photo from the original site (served at its original /wp-content/ URL); swap for a muted <video> loop if you have one *@
+                    <div class="at-screen at-screen--photo at-screen--live">
+                        <img src="/wp-content/uploads/2025/05/Big_led_screen_Dubai.jpg" alt="Big LED screen installed by Al Thamin in Dubai" width="1024" height="768" fetchpriority="high" />
+                        <span class="at-screen__badge">● BIG LED WALL · DUBAI</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ===== PROOF STRIP ===== *@
+        <section class="at-proof">
+            <div class="at-container at-proof__grid">
+                <div><strong>Since 2000</strong><span>Two decades in digital signage</span></div>
+                <div><strong>Dubai + Sharjah</strong><span>Two local offices</span></div>
+                <div><strong>End to end</strong><span>Hardware · software · install · support</span></div>
+                <div><strong>24/7 rated</strong><span>Commercial-grade displays</span></div>
+            </div>
+        </section>
+
+        @* ===== 01 SOLUTIONS — categories ticked "Show on home page" ===== *@
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeCategories })
+        <section class="at-band at-band--light">
+            <div class="at-container">
+                <div class="at-section-head">
+                    <div>
+                        <span class="at-eyebrow at-eyebrow--deep">01 — SOLUTIONS</span>
+                        <h2 class="at-h2">Digital signage solutions for every UAE business</h2>
+                    </div>
+                    <p>Restaurants in Deira, hotels on Sheikh Zayed Road, clinics in Sharjah — pick the screen, we handle the rest.</p>
+                </div>
+                @await Component.InvokeAsync(typeof(HomepageCategoriesViewComponent))
+            </div>
+        </section>
+
+        @* ===== 02 LED RANGE — products ticked "Show on home page" ===== *@
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeProducts })
+        <section class="at-band">
+            <div class="at-container at-split">
+                <div class="at-split__copy">
+                    <span class="at-eyebrow">02 — LED WALL RANGE</span>
+                    <h2 class="at-h2">Indoor, outdoor, rental, curved — one supplier</h2>
+                    <p>We design, supply and maintain LED walls for malls, showrooms, events, villas and building façades. Every install is specified for UAE heat, dust and viewing distance.</p>
+                    <a class="at-link" href="/service/led-wall-solutions/">See all LED wall solutions in Dubai →</a>
+                </div>
+                <div class="at-split__media">
+                    @await Component.InvokeAsync(typeof(HomepageProductsViewComponent))
+                </div>
+            </div>
+        </section>
+
+        @* ===== 03 SOFTWARE ===== *@
+        <section class="at-band at-band--panel">
+            <div class="at-container at-split at-split--center">
+                <div class="at-split__media">
+                    <div class="at-console">
+                        <div class="at-console__bar"><i></i><i></i><i></i><span>screendrive · network overview</span></div>
+                        <ul class="at-console__list">
+                            <li><span><i class="ok"></i>Lobby wall · Tower A</span><em>PLAYING</em></li>
+                            <li><span><i class="ok"></i>Menu boards 1–3 · Kitchen</span><em>SCHEDULED 11:00</em></li>
+                            <li><span><i class="ok"></i>Lift screens × 6</span><em>PLAYING</em></li>
+                            <li><span><i class="warn"></i>Kiosk · Entrance</span><em>UPDATING</em></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="at-split__copy">
+                    <span class="at-eyebrow">03 — SOFTWARE</span>
+                    <h2 class="at-h2">Screendrive: run every screen from one dashboard</h2>
+                    <p>Our own digital signage software, built in Dubai. Schedule content, push menu price changes, and manage one screen or a whole network remotely.</p>
+                    <ul class="at-ticks">
+                        <li>Content scheduling</li><li>Remote management</li><li>Interactive &amp; touch</li><li>Custom integrations</li>
+                    </ul>
+                    <a class="at-link" href="/digital-signage-software-in-dubai/">Digital signage software in Dubai →</a>
+                </div>
+            </div>
+        </section>
+
+        @* ===== 04 PROCESS ===== *@
+        <section class="at-band">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow">04 — HOW WE WORK</span>
+                    <h2 class="at-h2">Hardware, software, installation and maintenance — end to end</h2>
+                </div>
+                <ol class="at-steps">
+                    <li><span>STEP 01</span><h3>Site survey</h3><p>We visit your location in Dubai, Sharjah or wherever you are and measure viewing distance, light and power.</p></li>
+                    <li><span>STEP 02</span><h3>Design &amp; quote</h3><p>Screen type, pixel pitch, mounting and software — specified and priced clearly.</p></li>
+                    <li><span>STEP 03</span><h3>Install &amp; set-up</h3><p>Professional installation, Screendrive configured, your team trained.</p></li>
+                    <li><span>STEP 04</span><h3>Maintain</h3><p>Regular checks, updates and on-site support to keep downtime minimal.</p></li>
+                </ol>
+            </div>
+        </section>
+
+        @* ===== 05 AREAS SERVED (local SEO) ===== *@
+        <section class="at-band at-band--light">
+            <div class="at-container at-split">
+                <div class="at-split__copy">
+                    <span class="at-eyebrow at-eyebrow--deep">05 — AREAS WE SERVE</span>
+                    <h2 class="at-h2">Local installers in Dubai &amp; Sharjah, projects across the UAE</h2>
+                    <p>Two offices mean fast site surveys and on-site support. Tell us your location and we'll confirm availability.</p>
+                </div>
+                <div class="at-split__media at-areas">
+                    <div class="at-area"><h3>Dubai</h3><ul><li>Deira</li><li>Bur Dubai</li><li>Business Bay</li><li>Downtown</li><li>DIFC</li><li>Dubai Marina</li><li>JLT</li><li>Al Quoz</li><li>Jebel Ali</li></ul></div>
+                    <div class="at-area"><h3>Sharjah</h3><ul><li>Al Qasimia</li><li>Al Majaz</li><li>Al Nahda</li><li>Al Khan</li><li>Industrial Area</li><li>Muwaileh</li></ul></div>
+                    <div class="at-area"><h3>Rest of UAE</h3><ul><li>Abu Dhabi</li><li>Al Ain</li><li>Ajman</li><li>Umm Al Quwain</li><li>Ras Al Khaimah</li><li>Fujairah</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        @* ===== ABOUT / SEO COPY — edit in Admin › Content management › Topics › "HomepageText" ===== *@
+        <section class="at-band at-prose-band">
+            <div class="at-container at-prose">
+                @await Component.InvokeAsync(typeof(TopicBlockViewComponent), new { systemName = "HomepageText" })
+            </div>
+        </section>
+
+        @* ===== 06 RESOURCES (latest blog posts & case studies) ===== *@
+        @if (latestPosts.Any())
+        {
+            <section class="at-band at-band--rule">
+                <div class="at-container">
+                    <div class="at-section-head">
+                        <div>
+                            <span class="at-eyebrow">06 — RESOURCES</span>
+                            <h2 class="at-h2">Guides &amp; case studies</h2>
+                        </div>
+                        <a class="at-link" href="/resources/">All resources →</a>
+                    </div>
+                    <div class="at-posts">
+                        @foreach (var post in latestPosts)
+                        {
+                            <a class="at-post" href="@(await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = post.SeName }))">
+                                <span class="at-post__date">@post.CreatedOn.ToString("MMM yyyy").ToUpperInvariant()</span>
+                                <h3>@post.Title</h3>
+                                <span class="at-post__more">Read →</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+
+        @* ===== 07 FAQ ===== *@
+        <section class="at-band at-band--rule">
+            <div class="at-container at-split">
+                <div class="at-split__copy">
+                    <span class="at-eyebrow">07 — FAQ</span>
+                    <h2 class="at-h2">Questions UAE buyers ask</h2>
+                </div>
+                <div class="at-split__media at-faq">
+                    @foreach (var f in faqs)
+                    {
+                        <details>
+                            <summary>@f.Q</summary>
+                            <p>@f.A</p>
+                        </details>
+                    }
+                </div>
+            </div>
+        </section>
+        <script type="application/ld+json">@Html.Raw(faqJson)</script>
+
+        @{ await Html.RenderPartialAsync("_AlThamin.Offices"); }
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBeforeBestSellers })
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.HomepageBottom })
+    </div>
+</div>

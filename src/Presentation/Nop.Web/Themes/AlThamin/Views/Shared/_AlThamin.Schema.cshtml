@@ -1,0 +1,68 @@
+@*
+    LocalBusiness structured data for both Al Thamin offices.
+    Keep name / address / phone IDENTICAL to the two Google Business Profiles.
+    Before go-live: add "geo" coordinates and each Google Business Profile "hasMap" URL.
+*@
+@{
+    var site = $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.PathBase}".TrimEnd('/');
+}
+<script type="application/ld+json">
+{
+  "@@context": "https://schema.org",
+  "@@graph": [
+    {
+      "@@type": "Organization",
+      "@@id": "@(site)/#organization",
+      "name": "Al Thamin Technologies",
+      "url": "@(site)/",
+      "logo": "@(site)/Themes/AlThamin/Content/images/logo.png",
+      "telephone": "+971521847186",
+      "email": "info@althamin.ae",
+      "foundingDate": "2000",
+      "sameAs": [
+        "https://www.facebook.com/althaminuae",
+        "https://www.instagram.com/althamin.ae",
+        "https://www.linkedin.com/company/althamintech"
+      ]
+    },
+    {
+      "@@type": "LocalBusiness",
+      "@@id": "@(site)/#dubai",
+      "name": "Al Thamin Technologies — Dubai",
+      "parentOrganization": { "@@id": "@(site)/#organization" },
+      "url": "@(site)/contact/",
+      "telephone": "+971521847186",
+      "email": "info@althamin.ae",
+      "openingHoursSpecification": [{ "@@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:00", "closes": "17:00" }],
+      "image": "@(site)/Themes/AlThamin/Content/images/logo.png",
+      "address": {
+        "@@type": "PostalAddress",
+        "streetAddress": "Deira Business Centre, Iridium",
+        "addressLocality": "Deira, Dubai",
+        "addressRegion": "Dubai",
+        "addressCountry": "AE"
+      },
+      "areaServed": ["Dubai", "Sharjah", "Abu Dhabi", "Ajman", "United Arab Emirates"]
+    },
+    {
+      "@@type": "LocalBusiness",
+      "@@id": "@(site)/#sharjah",
+      "name": "Al Thamin Technologies — Sharjah",
+      "parentOrganization": { "@@id": "@(site)/#organization" },
+      "url": "@(site)/contact/",
+      "telephone": "+971521847186",
+      "email": "sharjah@althamin.ae",
+      "openingHoursSpecification": [{ "@@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "09:00", "closes": "17:00" }],
+      "image": "@(site)/Themes/AlThamin/Content/images/logo.png",
+      "address": {
+        "@@type": "PostalAddress",
+        "streetAddress": "Al Arbash Building, Shop No. 6",
+        "addressLocality": "Al Qasimia, Sharjah",
+        "addressRegion": "Sharjah",
+        "addressCountry": "AE"
+      },
+      "areaServed": ["Sharjah", "Dubai", "Ajman", "United Arab Emirates"]
+    }
+  ]
+}
+</script>

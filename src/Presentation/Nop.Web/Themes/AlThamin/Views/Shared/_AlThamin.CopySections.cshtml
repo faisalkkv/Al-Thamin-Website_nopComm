@@ -1,0 +1,129 @@
+@model string
+
+@using System.Text.Json
+@using System.Text.RegularExpressions
+
+@*
+    Page-copy layout shared by service (category) and sub-service (product) pages.
+    - The intro (copy before the first H2) — or the first H2 section when there is no intro — sits beside the quote card
+    - Every other H2 becomes its own full-width band (alternating cream / white) with a numbered heading
+    - An H2 containing "FAQ" / "questions" is laid out in two columns, and its <details> items are emitted as FAQPage JSON-LD
+    ViewData: QuoteTitle, QuoteSubject, BackLinkText, BackLinkUrl
+*@
+@{
+    var html = Model ?? string.Empty;
+    var quoteTitle = ViewData["QuoteTitle"] as string ?? "Get a quote";
+    var quoteSubject = ViewData["QuoteSubject"] as string ?? string.Empty;
+    var backLinkText = ViewData["BackLinkText"] as string;
+    var backLinkUrl = ViewData["BackLinkUrl"] as string;
+
+    var intro = html;
+    var sections = new List<(string Title, string Body, bool IsFaq)>();
+    var headings = Regex.Matches(html, "<h2[^>]*>(.*?)</h2>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+    if (headings.Count > 0)
+    {
+        intro = html[..headings[0].Index];
+        for (var i = 0; i < headings.Count; i++)
+        {
+            var start = headings[i].Index + headings[i].Length;
+            var end = i + 1 < headings.Count ? headings[i + 1].Index : html.Length;
+            var title = headings[i].Groups[1].Value.Trim();
+            var plain = Regex.Replace(title, "<[^>]+>", string.Empty).ToLowerInvariant();
+            sections.Add((title, html[start..end], plain.Contains("faq") || plain.Contains("questions")));
+        }
+    }
+
+    //the block next to the quote card: the intro, or else the first (non-FAQ) section
+    string leadTitle = null;
+    var leadBody = intro;
+    if (string.IsNullOrWhiteSpace(Regex.Replace(intro, "<[^>]+>", string.Empty)) && !Regex.IsMatch(intro, "<img", RegexOptions.IgnoreCase))
+    {
+        leadBody = null;
+        if (sections.Count > 0 && !sections[0].IsFaq)
+        {
+            leadTitle = sections[0].Title;
+            leadBody = sections[0].Body;
+            sections.RemoveAt(0);
+        }
+    }
+
+    var faqItems = Regex.Matches(html, "<details>\\s*<summary>(.*?)</summary>(.*?)</details>", RegexOptions.Singleline);
+    if (faqItems.Count > 0)
+    {
+        NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "FAQPage",
+            ["mainEntity"] = faqItems.Select(item => new Dictionary<string, object>
+            {
+                ["@type"] = "Question",
+                ["name"] = System.Net.WebUtility.HtmlDecode(Regex.Replace(item.Groups[1].Value, "<[^>]+>", string.Empty)).Trim(),
+                ["acceptedAnswer"] = new Dictionary<string, object>
+                {
+                    ["@type"] = "Answer",
+                    ["text"] = System.Net.WebUtility.HtmlDecode(Regex.Replace(Regex.Replace(item.Groups[2].Value, "<[^>]+>", " "), "\\s+", " ")).Trim()
+                }
+            }).ToList()
+        }));
+    }
+
+    var band = 0;
+    string NextBand() => band++ % 2 == 0 ? "at-band--light" : "at-band--white";
+    var quoteUrl = "/contact/" + (string.IsNullOrEmpty(quoteSubject) ? string.Empty : "?subject=" + Uri.EscapeDataString(quoteSubject));
+}
+
+@if (leadBody is not null)
+{
+    <section class="at-band @NextBand() at-copy-band" id="overview">
+        <div class="at-container at-product__body">
+            <div class="at-prose">
+                @if (leadTitle is not null)
+                {
+                    <h2>@Html.Raw(leadTitle)</h2>
+                }
+                @Html.Raw(leadBody)
+            </div>
+            <aside class="at-quote-card">
+                <h2>@quoteTitle</h2>
+                <p>Free site survey in Dubai &amp; Sharjah — reply within one working day.</p>
+                <a class="at-btn at-btn--primary at-btn--lg" href="@quoteUrl">Request a quote</a>
+                <a class="at-quote-card__phone" href="tel:+971521847186">+971 52 184 7186</a>
+                @if (!string.IsNullOrEmpty(backLinkUrl))
+                {
+                    <a class="at-link" href="@backLinkUrl">@backLinkText</a>
+                }
+            </aside>
+        </div>
+    </section>
+}
+
+@for (var i = 0; i < sections.Count; i++)
+{
+    var section = sections[i];
+    var number = (i + (leadTitle is not null ? 2 : 1)).ToString("00");
+    if (section.IsFaq)
+    {
+        <section class="at-band @NextBand() at-copy-band" id="faq">
+            <div class="at-container at-copy-faq">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow at-eyebrow--deep">@number — FAQ</span>
+                    <h2 class="at-h2 at-h2--sm">@Html.Raw(section.Title)</h2>
+                    <p>Can’t find your answer? <a href="@quoteUrl">Ask our team</a> or call <a href="tel:+971521847186">+971 52 184 7186</a>.</p>
+                </div>
+                <div class="at-prose">@Html.Raw(section.Body)</div>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="at-band @NextBand() at-copy-band">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow at-eyebrow--deep">@number</span>
+                    <h2 class="at-h2 at-h2--sm">@Html.Raw(section.Title)</h2>
+                </div>
+                <div class="at-prose at-prose--wide">@Html.Raw(section.Body)</div>
+            </div>
+        </section>
+    }
+}

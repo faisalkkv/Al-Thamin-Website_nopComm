@@ -1,0 +1,369 @@
+@model CategoryModel
+
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Seo
+@using Nop.Services.Catalog
+@using Nop.Services.Seo
+
+@inject SeoSettings seoSettings
+@inject IStoreContext storeContext
+@inject IProductService productService
+@inject IUrlRecordService urlRecordService
+
+@*
+    Al Thamin "service page" template — every /service/... URL is a category.
+    - Root category (Services, /service/): services index — flagship services with their sub-services, then every other service
+    - Service category: dark hero, sub-service cards + comparison (products), migrated SEO copy, local block, offices, CTA
+    Category description = the page's WordPress copy; meta description doubles as the hero intro.
+*@
+@{
+    Layout = "_ColumnsOne";
+
+    NopHtml.AddTitleParts(!string.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
+    NopHtml.AddMetaDescriptionParts(Model.MetaDescription);
+    NopHtml.AddMetaKeywordParts(Model.MetaKeywords);
+    NopHtml.AppendPageCssClassParts("html-category-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        var categoryUrl = (await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = Model.SeName }, Context.Request.Scheme)).ToLowerInvariant();
+        NopHtml.AddCanonicalUrlParts(categoryUrl, seoSettings.QueryStringInCanonicalUrlsEnabled);
+    }
+
+    NopHtml.AddJsonLdParts(Model.JsonLd);
+
+    //the root "Services" category (slug "service") is the services index
+    var isServicesIndex = string.Equals(Model.SeName, "service", StringComparison.OrdinalIgnoreCase) && Model.SubCategories.Count > 0;
+    var heroImage = Model.PictureModel?.FullSizeImageUrl is { } fullImage && !fullImage.Contains("default-image") ? fullImage : null;
+    ViewData["OgImage"] = heroImage;
+    var shortName = (Model.Name ?? string.Empty).Replace(" in Dubai, UAE", "").Replace(" in Dubai", "").Replace(" in UAE", "").Replace(" Supplier", "");
+    var waQuote = "https://wa.me/971521847186?text=" + Uri.EscapeDataString("Hi Al Thamin, I'd like a quote for " + Model.Name);
+    var products = Model.CatalogProductsModel?.Products ?? new List<ProductOverviewModel>();
+
+    //hero intro: the meta description, else the first lead sentence of the page copy (moved out of the copy)
+    var copyHtml = Model.Description ?? string.Empty;
+    var heroLead = Model.MetaDescription;
+    if (string.IsNullOrEmpty(heroLead))
+    {
+        var firstH2 = copyHtml.IndexOf("<h2", StringComparison.OrdinalIgnoreCase);
+        var lead = Regex.Match(firstH2 < 0 ? copyHtml : copyHtml[..firstH2], "<p class=\"at-lead\">(.*?)</p>", RegexOptions.Singleline);
+        if (lead.Success)
+        {
+            heroLead = System.Net.WebUtility.HtmlDecode(Regex.Replace(lead.Groups[1].Value, "<[^>]+>", string.Empty)).Trim();
+            copyHtml = copyHtml.Remove(lead.Index, lead.Length);
+        }
+    }
+
+    //services index: the sub-services (products) of each service
+    var subServices = new Dictionary<int, List<(string Name, string Url)>>();
+    if (isServicesIndex)
+    {
+        var store = await storeContext.GetCurrentStoreAsync();
+        foreach (var sub in Model.SubCategories)
+        {
+            var items = new List<(string, string)>();
+            foreach (var product in await productService.SearchProductsAsync(categoryIds: new List<int> { sub.Id }, storeId: store.Id, visibleIndividuallyOnly: true))
+            {
+                items.Add((product.Name, await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = await urlRecordService.GetSeNameAsync(product) })));
+            }
+            subServices[sub.Id] = items;
+        }
+    }
+}
+
+<div class="page category-page at-service">
+    @* ===== HERO ===== *@
+    <section class="at-hero at-hero--service">
+        <div class="at-container">
+            @if (Model.DisplayCategoryBreadcrumb)
+            {
+                <nav class="at-breadcrumb" aria-label="Breadcrumb">
+                    <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">@T("Categories.Breadcrumb.Top")</a>
+                    @foreach (var cat in Model.CategoryBreadcrumb)
+                    {
+                        <span aria-hidden="true">/</span>
+                        if (cat.Id == Model.Id)
+                        {
+                            <strong aria-current="page">@cat.Name</strong>
+                        }
+                        else
+                        {
+                            <a href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = cat.SeName }))">@cat.Name</a>
+                        }
+                    }
+                </nav>
+                @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CategoryDetailsAfterBreadcrumb, additionalData = Model })
+            }
+            <div class="at-hero__inner">
+                <div class="at-hero__copy">
+                    <span class="at-kicker"><i></i>@(isServicesIndex ? "DIGITAL SIGNAGE SERVICES · DUBAI & SHARJAH" : products.Count > 0 ? $"SERVICE · {products.Count} OPTIONS" : "SERVICE · DUBAI · SHARJAH · UAE")</span>
+                    <div class="page-title">
+                        <h1 class="at-hero__title">@(isServicesIndex ? "Digital signage services in Dubai, Sharjah & the UAE" : Model.Name)</h1>
+                    </div>
+                    @if (!string.IsNullOrEmpty(heroLead))
+                    {
+                        <p class="at-hero__lead">@heroLead</p>
+                    }
+                    else if (isServicesIndex)
+                    {
+                        <p class="at-hero__lead">LED walls, kiosks, menu boards, lobby screens and the software behind them. Pick a solution, or tell us about your space and we will recommend one.</p>
+                    }
+                    <div class="at-actions">
+                        <a class="at-btn at-btn--primary at-btn--lg" href="/contact/?subject=@Uri.EscapeDataString(Model.Name)">Get a quote</a>
+                        <a class="at-btn at-btn--ghost at-btn--lg" href="@waQuote" target="_blank" rel="noopener">WhatsApp us</a>
+                    </div>
+                    @if (isServicesIndex)
+                    {
+                        <nav class="at-chips at-chips--dark" aria-label="Jump to a service">
+                            @foreach (var sub in Model.SubCategories)
+                            {
+                                <a class="at-chip" href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = sub.SeName }))">@sub.Name</a>
+                            }
+                        </nav>
+                    }
+                </div>
+                @if (!isServicesIndex)
+                {
+                    <div class="at-hero__media">
+                        <div class="at-screen at-screen--photo">
+                            @if (!string.IsNullOrEmpty(heroImage))
+                            {
+                                <img src="@heroImage" alt="@(Model.PictureModel.AlternateText ?? Model.Name)" fetchpriority="high" />
+                            }
+                            else
+                            {
+                                <div class="at-screen__panel"><div class="at-screen__headline">@shortName</div></div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="at-facts">
+        <div class="at-container at-proof__grid">
+            <div><span>SERVICE</span><strong>Design · supply · install · maintain</strong></div>
+            <div><span>COVERAGE</span><strong>Dubai, Sharjah &amp; all emirates</strong></div>
+            <div><span>SOFTWARE</span><strong>Screendrive included</strong></div>
+            <div><span>OFFICES</span><strong>Deira &amp; Al Qasimia</strong></div>
+        </div>
+    </section>
+
+    <div class="page-body">
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CategoryDetailsTop, additionalData = Model })
+
+        @if (isServicesIndex)
+        {
+            @* ===== SERVICES INDEX ===== *@
+            var flagships = Model.SubCategories.Where(s => subServices[s.Id].Count > 0).ToList();
+            var others = Model.SubCategories.Where(s => subServices[s.Id].Count == 0).ToList();
+
+            <section class="at-band at-band--white">
+                <div class="at-container">
+                    <div class="at-flagships">
+                        @foreach (var sub in flagships)
+                        {
+                            var subUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = sub.SeName });
+                            <article class="at-flagship">
+                                @if (!string.IsNullOrEmpty(sub.PictureModel?.ImageUrl) && !sub.PictureModel.ImageUrl.Contains("default-image"))
+                                {
+                                    <a href="@subUrl" class="at-flagship__media"><img src="@sub.PictureModel.FullSizeImageUrl" alt="@sub.PictureModel.AlternateText" loading="lazy" /></a>
+                                }
+                                <div class="at-flagship__copy">
+                                    <span class="at-eyebrow at-eyebrow--deep">@subServices[sub.Id].Count TYPES · SUPPLY &amp; INSTALL</span>
+                                    <h2><a href="@subUrl">@sub.Name</a></h2>
+                                    <ul class="at-sublinks">
+                                        @foreach (var (name, url) in subServices[sub.Id])
+                                        {
+                                            <li><a href="@url"><span>@name</span><span aria-hidden="true">→</span></a></li>
+                                        }
+                                    </ul>
+                                    <a class="at-link" href="@subUrl">All @sub.Name →</a>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                </div>
+            </section>
+
+            @if (others.Count > 0)
+            {
+                <section class="at-band at-band--light">
+                    <div class="at-container">
+                        <h2 class="at-h2 at-h2--sm">More signage solutions</h2>
+                        <div class="at-cards">
+                            @{ var n = 0; }
+                            @foreach (var sub in others)
+                            {
+                                n++;
+                                var subUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = sub.SeName });
+                                <a class="at-card" href="@subUrl">
+                                    <span class="at-card__top"><span class="at-card__num">@n.ToString("00")</span><span class="at-card__arrow" aria-hidden="true">↗</span></span>
+                                    @if (!string.IsNullOrEmpty(sub.PictureModel?.ImageUrl) && !sub.PictureModel.ImageUrl.Contains("default-image"))
+                                    {
+                                        <img class="at-card__img" src="@sub.PictureModel.ImageUrl" alt="@sub.PictureModel.AlternateText" loading="lazy" />
+                                    }
+                                    <h3 class="at-card__title">@sub.Name</h3>
+                                    <span class="at-card__path">@subUrl</span>
+                                </a>
+                            }
+                            <a class="at-card" href="/meeting-room-disply-in-uae/">
+                                <span class="at-card__top"><span class="at-card__num">@((++n).ToString("00"))</span><span class="at-card__arrow" aria-hidden="true">↗</span></span>
+                                <h3 class="at-card__title">Meeting Room Displays</h3>
+                                <span class="at-card__path">/meeting-room-disply-in-uae/</span>
+                            </a>
+                            <a class="at-card" href="/gym-advertising-and-promotion-screens-in-dubai-uae/">
+                                <span class="at-card__top"><span class="at-card__num">@((++n).ToString("00"))</span><span class="at-card__arrow" aria-hidden="true">↗</span></span>
+                                <h3 class="at-card__title">Gym Promotion Screens</h3>
+                                <span class="at-card__path">/gym-advertising-and-promotion-screens-in-dubai-uae/</span>
+                            </a>
+                        </div>
+                    </div>
+                </section>
+            }
+
+            <section class="at-band at-band--panel">
+                <div class="at-container at-split at-split--center">
+                    <div class="at-split__copy">
+                        <span class="at-eyebrow">AFTER INSTALLATION</span>
+                        <h2 class="at-h2 at-h2--sm">Digital signage maintenance &amp; support</h2>
+                        <p>Regular system checks, troubleshooting, updates and on-site support — for screens we installed and screens we didn’t. Support line open daily 8:30 AM – 9:30 PM.</p>
+                    </div>
+                    <div class="at-split__media">
+                        <ul class="at-minicards">
+                            <li><strong>Preventive visits</strong><span>Scheduled checks and cleaning</span></li>
+                            <li><strong>Repairs</strong><span>Modules, power supplies, players</span></li>
+                            <li><strong>Remote support</strong><span>Content and software via Screendrive</span></li>
+                            <li><strong>Any brand</strong><span>LED and LCD signage</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        }
+        else
+        {
+            @* ===== SUB-SERVICES (products) ===== *@
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CategoryDetailsBeforeProductList, additionalData = Model })
+            @if (products.Count > 0)
+            {
+                <section class="at-band at-band--white" id="range">
+                    <div class="at-container">
+                        <div class="at-section-head at-section-head--stack">
+                            <span class="at-eyebrow at-eyebrow--deep">CHOOSE YOUR SOLUTION</span>
+                            <h2 class="at-h2 at-h2--sm">@products.Count @shortName options, one installer</h2>
+                        </div>
+                        <div class="at-cards">
+                            @foreach (var item in products)
+                            {
+                                var itemUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.SeName });
+                                var picture = item.PictureModels.FirstOrDefault();
+                                <a class="at-card at-card--product" href="@itemUrl">
+                                    @if (!string.IsNullOrEmpty(picture?.ImageUrl) && !picture.ImageUrl.Contains("default-image"))
+                                    {
+                                        <img class="at-card__img" src="@picture.ImageUrl" alt="@picture.AlternateText" loading="lazy" />
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.ShortDescription))
+                                    {
+                                        <span class="at-card__num">@Html.Raw(item.ShortDescription)</span>
+                                    }
+                                    <h3 class="at-card__title">@item.Name</h3>
+                                    <span class="at-card__more">View details →</span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
+            @if (Model.SubCategories.Count > 0)
+            {
+                <section class="at-band at-band--light at-band--tight">
+                    <div class="at-container">
+                        <h2 class="at-h2 at-h2--sm">@Model.Name — solutions</h2>
+                        <div class="at-cards">
+                            @foreach (var item in Model.SubCategories)
+                            {
+                                var subUrl = await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = item.SeName });
+                                <a class="at-card" href="@subUrl">
+                                    @if (!string.IsNullOrEmpty(item.PictureModel?.ImageUrl) && !item.PictureModel.ImageUrl.Contains("default-image"))
+                                    {
+                                        <img class="at-card__img" src="@item.PictureModel.ImageUrl" alt="@item.PictureModel.AlternateText" loading="lazy" />
+                                    }
+                                    <h3 class="at-card__title">@item.Name</h3>
+                                    <span class="at-card__path">@subUrl</span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+        }
+
+        @if (products.Count > 1)
+        {
+            <section class="at-band at-band--white at-band--tight at-compare">
+                <div class="at-container">
+                    <h2 class="at-h2 at-h2--sm">Compare @shortName options</h2>
+                    <div class="at-table-wrap">
+                        <table class="at-table">
+                            <thead><tr><th scope="col">Option</th><th scope="col">Best for</th><th scope="col"></th></tr></thead>
+                            <tbody>
+                                @foreach (var item in products)
+                                {
+                                    var itemUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.SeName });
+                                    <tr>
+                                        <th scope="row"><a href="@itemUrl">@item.Name</a></th>
+                                        <td>@Html.Raw(item.ShortDescription)</td>
+                                        <td><a class="at-table__more" href="@itemUrl">Details →</a></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        }
+
+        @* ===== PAGE COPY: intro + quote card, then one band per H2 (shared with sub-service pages) ===== *@
+        @{
+            var copyViewData = new ViewDataDictionary(ViewData)
+            {
+                ["QuoteTitle"] = $"Get a {shortName} quote",
+                ["QuoteSubject"] = Model.Name
+            };
+        }
+        @await Html.PartialAsync("_AlThamin.CopySections", copyHtml, copyViewData)
+
+        @* ===== LOCAL SEO BLOCK ===== *@
+        <section class="at-band at-band--panel">
+            <div class="at-container">
+                <div class="at-section-head at-section-head--stack">
+                    <span class="at-eyebrow">INSTALLATION NEAR YOU</span>
+                    <h2 class="at-h2">@(isServicesIndex ? "Digital signage" : shortName) installers in Dubai, Sharjah and Abu Dhabi</h2>
+                </div>
+                <div class="at-local">
+                    <div><h3>Dubai</h3><p>Installed and supported from our Deira Business Centre office — Deira, Business Bay, Downtown, Al Quoz, JLT and Dubai Marina.</p></div>
+                    <div><h3>Sharjah</h3><p>Served from our Al Qasimia office — Al Majaz, Al Nahda, Al Khan and the industrial areas.</p></div>
+                    <div><h3>Abu Dhabi &amp; Northern Emirates</h3><p>Projects in Abu Dhabi, Al Ain, Ajman, RAK and Fujairah with scheduled site visits.</p></div>
+                </div>
+            </div>
+        </section>
+
+        @* ===== QUOTE CTA ===== *@
+        <section class="at-cta">
+            <div class="at-container at-cta__inner">
+                <h2>@(isServicesIndex ? "Not sure which screen fits your space?" : $"Get a {shortName} quote this week")</h2>
+                <div class="at-actions">
+                    <a class="at-btn at-btn--dark at-btn--lg" href="@waQuote" target="_blank" rel="noopener">WhatsApp us</a>
+                    <a class="at-btn at-btn--outline-dark at-btn--lg" href="/contact/?subject=@Uri.EscapeDataString(Model.Name)">Send an enquiry</a>
+                </div>
+            </div>
+        </section>
+
+        @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.CategoryDetailsBottom, additionalData = Model })
+    </div>
+</div>

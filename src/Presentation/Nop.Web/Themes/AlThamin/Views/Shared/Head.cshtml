@@ -1,0 +1,68 @@
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Seo
+
+@inject CatalogSettings catalogSettings
+@inject SeoSettings seoSettings
+
+@{
+    Layout = "";
+    // theme folder name is fixed so these views compile on nopCommerce 4.90 and 5.00
+    const string themeName = "AlThamin";
+    var supportRtl = await Html.ShouldUseRtlThemeAsync();
+
+    // NOTE: AppendCssFileParts inserts at the TOP of the list, so the file appended FIRST renders LAST.
+    // althamin.css must load after styles.css so its brand rules win.
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/althamin.css");
+
+    //add main CSS file (DefaultClean base, kept so cart / checkout / account pages keep working)
+    NopHtml.AppendCssFileParts($"~/Themes/{themeName}/Content/css/styles{(supportRtl ? ".rtl" : "")}.css");
+
+    //add swiper css file
+    if (catalogSettings.DisplayAllPicturesOnCatalogPages)
+    {
+        NopHtml.AppendCssFileParts("~/lib_npm/swiper/swiper-bundle.min.css");
+    }
+
+    //add jQuery UI css file
+    NopHtml.AppendCssFileParts("~/lib_npm/jquery-ui-dist/jquery-ui.min.css");
+}
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap" />
+<meta name="theme-color" content="#0A0E13" />
+@*
+    Social preview tags for every page, built from the final <title> / meta description.
+    Page templates may set ViewData["OgImage"] (absolute or root-relative) and ViewData["OgType"] ("article" for posts).
+*@
+@{
+    var origin = $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.PathBase}";
+    var ogImage = ViewData["OgImage"] as string;
+    if (string.IsNullOrEmpty(ogImage) || ogImage.Contains("default-image"))
+    {
+        ogImage = "/wp-content/uploads/2025/05/Big_led_screen_Dubai.jpg";
+    }
+    if (ogImage.StartsWith("/"))
+    {
+        ogImage = origin + ogImage;
+    }
+    var ogTitle = await NopHtml.GenerateTitleAsync();
+    var ogDescription = await NopHtml.GenerateMetaDescriptionAsync();
+    var ogUrl = origin + Context.Request.Path.Value?.ToLowerInvariant();
+}
+@if (seoSettings.OpenGraphMetaTags)
+{
+    <meta property="og:site_name" content="Al Thamin Technologies" />
+    <meta property="og:type" content="@(ViewData["OgType"] as string ?? "website")" />
+    <meta property="og:title" content="@ogTitle" />
+    <meta property="og:description" content="@ogDescription" />
+    <meta property="og:url" content="@ogUrl" />
+    <meta property="og:image" content="@ogImage" />
+    <meta property="og:locale" content="en_AE" />
+}
+@if (seoSettings.TwitterMetaTags)
+{
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@ogTitle" />
+    <meta name="twitter:description" content="@ogDescription" />
+    <meta name="twitter:image" content="@ogImage" />
+}

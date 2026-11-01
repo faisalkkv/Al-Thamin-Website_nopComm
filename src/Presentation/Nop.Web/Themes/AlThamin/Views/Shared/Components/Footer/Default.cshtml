@@ -1,0 +1,74 @@
+@model FooterModel
+
+@using Nop.Core
+@using Nop.Core.Domain.Tax
+
+@inject IWorkContext workContext
+@{
+    const string themeName = "AlThamin";
+}
+
+<footer class="footer at-footer">
+    <section class="footer-upper at-container at-footer__upper">
+        <div class="at-footer__brand">
+            <img src="@Url.Content($"~/Themes/{themeName}/Content/images/logo-white.png")" alt="@Model.StoreName" width="180" height="48" loading="lazy" />
+            <p>Your trusted partner for digital signage, IT infrastructure, servers, hardware and AI-powered technology in the UAE.</p>
+            <div class="at-footer__nap">
+                <p><strong>Dubai</strong> — Deira Business Centre, Iridium, Deira, Dubai, UAE</p>
+                <p><strong>Sharjah</strong> — Al Arbash Building, Shop No. 6, Al Qasimia, Sharjah, UAE</p>
+                <p><a href="tel:+971521847186">+971 52 184 7186</a> · <a href="https://wa.me/971521847186" target="_blank" rel="noopener">WhatsApp</a></p>
+                <p><a href="mailto:info@althamin.ae">info@althamin.ae</a> · <a href="mailto:sharjah@althamin.ae">sharjah@althamin.ae</a></p>
+                <p>Mon–Fri 9:00 AM – 5:00 PM · Support daily 8:30 AM – 9:30 PM</p>
+            </div>
+        </div>
+        @* Footer columns come from Admin › Content management › Menus (footer menus) *@
+        @await Component.InvokeAsync(typeof(FooterMenuViewComponent))
+        <div class="footer-block follow-us at-footer__social">
+            <div class="social">
+                <h2 class="title">@T("Footer.FollowUs")</h2>
+                <ul class="networks at-social">
+                    <li><a href="https://www.facebook.com/althaminuae" target="_blank" rel="noopener" aria-label="Facebook">Facebook</a></li>
+                    <li><a href="https://www.instagram.com/althamin.ae" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a></li>
+                    <li><a href="https://www.linkedin.com/company/althamintech" target="_blank" rel="noopener" aria-label="LinkedIn">LinkedIn</a></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+    <section class="footer-lower at-container at-footer__lower">
+        <div class="footer-info">
+            <span class="footer-disclaimer">@T("Content.CopyrightNotice", DateTime.Now.Year, Model.StoreName)</span>
+            @if (Model.DisplayTaxShippingInfoFooter)
+            {
+                var inclTax = await workContext.GetTaxDisplayTypeAsync() == TaxDisplayType.IncludingTax;
+                <span class="footer-tax-shipping">
+                    @T(inclTax ? "Footer.TaxShipping.InclTax" : "Footer.TaxShipping.ExclTax", await NopUrl.RouteTopicUrlAsync("shippinginfo"))
+                </span>
+            }
+        </div>
+        @if (!Model.HidePoweredByNopCommerce)
+        {
+            <div class="footer-powered-by">
+                @*Would you like to remove the "Powered by nopCommerce" link in the bottom of the footer?
+                    Please find more info at https://www.nopcommerce.com/nopcommerce-copyright-removal-key*@
+                Powered by <a href="@(OfficialSite.Main)" target="_blank" @(Model.IsHomePage ? string.Empty : "rel=nofollow")>nopCommerce</a>
+            </div>
+        }
+    </section>
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.Footer, additionalData = Model })
+</footer>
+
+<script asp-location="Footer">
+    $(function() {
+        $('.block .title').on('click', function () {
+            var e = window, a = 'inner';
+            if (!('innerWidth' in window)) {
+                a = 'client';
+                e = document.documentElement || document.body;
+            }
+            var result = { width: e[a + 'Width'], height: e[a + 'Height'] };
+            if (result.width < 1001) {
+                $(this).siblings('.listbox').slideToggle('slow');
+            }
+        });
+    });
+</script>

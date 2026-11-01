@@ -1,0 +1,9 @@
+@model LogoModel
+@{
+    // The header is dark, so the theme always uses the white-text brand logo here.
+    // (The admin "Store logo" setting is still used by emails / invoices.)
+    const string themeName = "AlThamin";
+}
+<a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)" class="at-logo" aria-label="@Model.StoreName — home">
+    <img alt="@Model.StoreName" src="@Url.Content($"~/Themes/{themeName}/Content/images/logo-white.png")" width="164" height="44" />
+</a>

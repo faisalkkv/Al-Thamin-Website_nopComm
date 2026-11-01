@@ -1,0 +1,191 @@
+@model BlogPostListModel
+
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Blogs
+@using Nop.Core.Domain.Seo
+@using Nop.Services.Blogs
+
+@inject IWebHelper webHelper
+@inject SeoSettings seoSettings
+@inject IBlogService blogService
+@inject IStoreContext storeContext
+
+@*
+    Resources hub. One view serves every legacy listing URL (the Al Thamin plugin rewrites them to the blog routes):
+    /resources/, /blog-2/, /category/blog/  → all posts
+    /case-study/, /category/case-study/     → posts tagged "case-study"
+    /tag/{tag}/                             → posts with that tag
+    Each keeps its own WordPress <title> and is its own canonical URL.
+*@
+@functions {
+    static string TagSlug(string tag) => Regex.Replace((tag ?? string.Empty).Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+    static string TagUrl(string tag) => TagSlug(tag) == "case-study" ? "/category/case-study/" : $"/tag/{TagSlug(tag)}/";
+    static bool IsCaseStudy(BlogPostModel post) => post.Tags.Any(t => TagSlug(t) == "case-study");
+    static string FirstImage(string html) => Regex.Match(html ?? string.Empty, "<img[^>]+src=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+}
+@{
+    Layout = "_ColumnsOne";
+
+    var path = Context.Request.Path.Value?.ToLowerInvariant() ?? "/resources/";
+    var tag = Model.PagingFilteringContext.Tag;
+    var isCaseStudies = TagSlug(tag) == "case-study";
+
+    //WordPress page titles, kept 1:1
+    //(title, H1, intro, meta description) — titles match the WordPress pages ("… Archives" for category / tag archives)
+    var (title, heading, lead, description) = path switch
+    {
+        "/blog-2/" => ("Blog", "Digital signage blog", "Guides and ideas for UAE businesses using LED walls, kiosks and digital signage.",
+            "Digital signage blog by Al Thamin Technologies: guides, trends and ideas for LED walls, kiosks and screens for businesses in Dubai and the UAE."),
+        "/category/blog/" => ("Blog Archives", "Digital signage blog", "Guides and ideas for UAE businesses using LED walls, kiosks and digital signage.",
+            "Explore the latest updates, trends, and success stories in digital signage and display tech from Al Thamin – powering smart screens across the UAE."),
+        "/case-study/" => ("Case Study", "Case studies", "Digital signage projects we have delivered, and the results they produced.",
+            "Digital signage case studies from Al Thamin Technologies: real LED, kiosk and screen projects delivered for clinics, hotels and businesses in the UAE."),
+        "/category/case-study/" => ("Case Study Archives", "Case studies", "Digital signage projects we have delivered, and the results they produced.",
+            "Browse every Al Thamin case study: digital signage, LED screen and kiosk installations for clinics, hotels and businesses across Dubai and the UAE."),
+        _ when !string.IsNullOrEmpty(tag) => ($"{tag} Archives", tag, $"Articles and case studies about {tag.ToLowerInvariant()}.",
+            $"{tag}: articles and case studies from Al Thamin Technologies — practical digital signage guides for businesses in Dubai, Abu Dhabi and the UAE."),
+        _ => ("Resources", "Digital signage guides & case studies", "Practical advice for UAE businesses buying LED walls, kiosks and signage software — and stories from our installs.",
+            "Digital signage guides, blog posts and case studies from Al Thamin Technologies — practical advice on LED walls, kiosks and screens for UAE businesses.")
+    };
+    NopHtml.AddTitleParts(title);
+    NopHtml.AddMetaDescriptionParts(description);
+    NopHtml.AppendPageCssClassParts("html-blog-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        NopHtml.AddCanonicalUrlParts($"{webHelper.GetCurrentRequestProtocol()}://{Context.Request.Host}{path}", false);
+    }
+
+    var store = await storeContext.GetCurrentStoreAsync();
+    var allTags = await blogService.GetAllBlogPostTagsAsync(store.Id, Model.WorkingLanguageId);
+
+    //feature the newest case study on the first page of the main hub
+    var posts = Model.BlogPosts.ToList();
+    var featured = path == "/resources/" && Model.PagingFilteringContext.PageNumber <= 1 ? posts.FirstOrDefault(IsCaseStudy) : null;
+    if (featured is not null)
+    {
+        posts.Remove(featured);
+    }
+}
+
+<div class="page blog-page at-resources">
+    <section class="at-resources__head">
+        <div class="at-container">
+            <nav class="at-breadcrumb at-breadcrumb--light" aria-label="Breadcrumb">
+                <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">Home</a>
+                <span aria-hidden="true">/</span>
+                @if (path == "/resources/")
+                {
+                    <strong aria-current="page">Resources</strong>
+                }
+                else
+                {
+                    <a href="/resources/">Resources</a>
+                    <span aria-hidden="true">/</span>
+                    <strong aria-current="page">@title</strong>
+                }
+            </nav>
+            <div class="page-title"><h1>@heading</h1></div>
+            <p class="at-resources__lead">@lead</p>
+            <nav class="at-chips" aria-label="Filter">
+                <a class="at-chip @(path is "/resources/" or "/blog-2/" ? "is-active" : null)" href="/resources/">All</a>
+                <a class="at-chip @(path == "/category/blog/" ? "is-active" : null)" href="/category/blog/">Blog</a>
+                <a class="at-chip @(isCaseStudies ? "is-active" : null)" href="/category/case-study/">Case studies</a>
+            </nav>
+        </div>
+    </section>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogListPageBeforePosts, additionalData = Model })
+
+    @if (featured is not null)
+    {
+        var featuredUrl = await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = featured.SeName });
+        var featuredImage = FirstImage(featured.Body);
+        <section class="at-container at-featured-wrap">
+            <a class="at-featured" href="@featuredUrl">
+                <div class="at-featured__media">
+                    @if (!string.IsNullOrEmpty(featuredImage))
+                    {
+                        <img src="@featuredImage" alt="@featured.Title" loading="lazy" />
+                    }
+                </div>
+                <div class="at-featured__copy">
+                    <span class="at-eyebrow">FEATURED · CASE STUDY</span>
+                    <h2>@featured.Title</h2>
+                    @if (!string.IsNullOrEmpty(featured.BodyOverview))
+                    {
+                        <p>@featured.BodyOverview</p>
+                    }
+                    <span class="at-featured__more">Read the case study →</span>
+                </div>
+            </a>
+        </section>
+    }
+
+    <section class="at-band at-band--light at-resources__body">
+        <div class="at-container at-resources__grid">
+            <div class="at-postcards">
+                @if (posts.Count == 0 && featured is null)
+                {
+                    <p>No articles here yet.</p>
+                }
+                @foreach (var item in posts)
+                {
+                    var itemUrl = await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = item.SeName });
+                    var image = FirstImage(item.Body);
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogListPageBeforePost, additionalData = item })
+                    <article class="at-postcard">
+                        <a href="@itemUrl">
+                            <div class="at-postcard__media">
+                                @if (!string.IsNullOrEmpty(image))
+                                {
+                                    <img src="@image" alt="" loading="lazy" />
+                                }
+                            </div>
+                            <div class="at-postcard__copy">
+                                <span class="at-postcard__meta">@(IsCaseStudy(item) ? "CASE STUDY" : "BLOG") · <time datetime="@item.CreatedOn.ToString("yyyy-MM-dd")">@item.CreatedOn.ToString("d MMM yyyy")</time></span>
+                                <h2>@item.Title</h2>
+                                @if (!string.IsNullOrEmpty(item.BodyOverview))
+                                {
+                                    <p>@item.BodyOverview</p>
+                                }
+                            </div>
+                        </a>
+                    </article>
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogListPageAfterPost, additionalData = item })
+                }
+                @{
+                    var pager = Html.Pager(Model.PagingFilteringContext).QueryParam("pagenumber");
+                }
+                @if (!(await pager.IsEmpty()))
+                {
+                    <div class="pager">@pager</div>
+                }
+            </div>
+
+            <aside class="at-resources__side">
+                @if (allTags.Count > 0)
+                {
+                    <div class="at-sidecard">
+                        <h2>Topics</h2>
+                        <div class="at-chips at-chips--small">
+                            @foreach (var blogTag in allTags.Where(t => TagSlug(t.Name) != "case-study").OrderByDescending(t => t.BlogPostCount))
+                            {
+                                <a class="at-chip @(TagSlug(blogTag.Name) == TagSlug(tag) ? "is-active" : null)" href="@TagUrl(blogTag.Name)">@blogTag.Name</a>
+                            }
+                        </div>
+                    </div>
+                }
+                <div class="at-sidecard at-sidecard--dark">
+                    <h2>Planning a project?</h2>
+                    <p>Free site survey in Dubai &amp; Sharjah, quote within one working day.</p>
+                    <a class="at-btn at-btn--primary" href="/contact/">Talk to an expert</a>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.BlogListPageAfterPosts, additionalData = Model })
+</div>

@@ -1,0 +1,11 @@
+{
+  "Group": "Misc",
+  "FriendlyName": "Al Thamin — legacy URLs & content",
+  "SystemName": "Misc.AlThamin",
+  "Version": "1.0.0",
+  "SupportedVersions": [ "4.90" ],
+  "Author": "Al Thamin Technologies",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Misc.AlThamin.dll",
+  "Description": "Serves every althamin.ae WordPress URL at its original path (trailing slash, nested /service/... paths), 301s nopCommerce-native URLs to them, outputs the legacy paths in links, canonicals and sitemap.xml, and imports the site content."
+}

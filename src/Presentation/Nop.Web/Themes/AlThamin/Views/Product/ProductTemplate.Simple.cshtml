@@ -1,0 +1,278 @@
+@model ProductDetailsModel
+
+@using System.Text.Json
+@using Nop.Core
+@using Nop.Core.Domain.Catalog
+@using Nop.Core.Domain.Seo
+@using Nop.Services.Catalog
+@using Nop.Services.Html
+@using Nop.Web.Factories
+
+@inject IHtmlFormatter htmlFormatter
+@inject IWebHelper webHelper
+@inject SeoSettings seoSettings
+@inject IStoreContext storeContext
+@inject IProductService productService
+@inject IProductModelFactory productModelFactory
+
+@*
+    Al Thamin "sub-service" page: every /service/{category}/{product}/ URL is a quote-only product.
+    - Gallery + summary with quote / WhatsApp actions (no price, cart or wishlist)
+    - Full description = the page's SEO copy migrated from WordPress (headings, lists, spec tables)
+    - Specification attributes (Admin › Catalog › Attributes) render as a spec table when present
+*@
+@{
+    Layout = "_ColumnsOne";
+
+    NopHtml.AddTitleParts(!string.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
+    NopHtml.AddMetaDescriptionParts(Model.MetaDescription);
+    NopHtml.AddMetaKeywordParts(Model.MetaKeywords);
+    NopHtml.AppendPageCssClassParts("html-product-details-page");
+    NopHtml.AppendPageCssClassParts("at-wide");
+
+    var productUrl = (await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = Model.SeName }, webHelper.GetCurrentRequestProtocol())).ToLowerInvariant();
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        NopHtml.AddCanonicalUrlParts(productUrl, seoSettings.QueryStringInCanonicalUrlsEnabled);
+    }
+
+    var description = htmlFormatter.StripTags(!string.IsNullOrEmpty(Model.MetaDescription) ? Model.MetaDescription : Model.ShortDescription ?? string.Empty);
+    //social preview image (the og/twitter tags are written by Shared/Head.cshtml)
+    ViewData["OgImage"] = Model.DefaultPictureModel.FullSizeImageUrl;
+
+    //breadcrumb: Services › category › product
+    var crumbs = Model.Breadcrumb?.CategoryBreadcrumb ?? new List<CategorySimpleModel>();
+    var parentCategory = crumbs.LastOrDefault();
+
+    //quote-only service: Service + BreadcrumbList JSON-LD instead of Product/Offer (no price to declare)
+    var origin = $"{webHelper.GetCurrentRequestProtocol()}://{Context.Request.Host}";
+    var breadcrumbItems = new List<object>();
+    var position = 0;
+    foreach (var crumb in crumbs)
+    {
+        breadcrumbItems.Add(new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = ++position, ["name"] = crumb.Name, ["item"] = origin + await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = crumb.SeName }) });
+    }
+    breadcrumbItems.Add(new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = ++position, ["name"] = Model.Name, ["item"] = productUrl });
+    NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object> { ["@context"] = "https://schema.org", ["@type"] = "BreadcrumbList", ["itemListElement"] = breadcrumbItems }));
+    NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "Service",
+        ["name"] = Model.Name,
+        ["description"] = description,
+        ["image"] = Model.DefaultPictureModel.FullSizeImageUrl,
+        ["url"] = productUrl,
+        ["serviceType"] = parentCategory?.Name ?? Model.Name,
+        ["areaServed"] = new[] { "Dubai", "Sharjah", "Abu Dhabi", "United Arab Emirates" },
+        ["provider"] = new Dictionary<string, object> { ["@id"] = origin + "/#organization" }
+    }));
+
+    //sibling sub-services in the same category
+    IList<ProductOverviewModel> related = new List<ProductOverviewModel>();
+    if (parentCategory is not null)
+    {
+        var store = await storeContext.GetCurrentStoreAsync();
+        var siblings = (await productService.SearchProductsAsync(categoryIds: new List<int> { parentCategory.Id }, storeId: store.Id, visibleIndividuallyOnly: true))
+            .Where(p => p.Id != Model.Id).Take(3).ToList();
+        related = (await productModelFactory.PrepareProductOverviewModelsAsync(siblings, preparePriceModel: false)).ToList();
+    }
+
+    var waQuote = "https://wa.me/971521847186?text=" + Uri.EscapeDataString("Hi Al Thamin, I'd like a quote for: " + Model.Name);
+    var pictures = Model.PictureModels.Count > 0 ? Model.PictureModels : new List<PictureModel> { Model.DefaultPictureModel };
+    var hasPhoto = !string.IsNullOrEmpty(pictures[0].FullSizeImageUrl) && !pictures[0].FullSizeImageUrl.Contains("default-image");
+}
+
+<div class="page product-details-page at-product">
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductDetailsTop, additionalData = Model })
+
+    @* ===== SUMMARY ===== *@
+    <section class="at-product__top">
+        <div class="at-container">
+            <nav class="at-breadcrumb at-breadcrumb--light" aria-label="Breadcrumb">
+                <a href="@Url.RouteUrl(NopRouteNames.General.HOMEPAGE)">@T("Products.Breadcrumb.Top")</a>
+                @foreach (var crumb in crumbs)
+                {
+                    <span aria-hidden="true">/</span>
+                    <a href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = crumb.SeName }))">@crumb.Name</a>
+                }
+                <span aria-hidden="true">/</span>
+                <strong aria-current="page">@Model.Name</strong>
+            </nav>
+            @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductDetailsAfterBreadcrumb, additionalData = Model })
+
+            <article class="at-product__grid" data-productid="@Model.Id">
+                <div class="at-gallery">
+                    @if (hasPhoto)
+                    {
+                        <div class="at-gallery__main">
+                            <img id="at-gallery-main" src="@pictures[0].FullSizeImageUrl" alt="@(pictures[0].AlternateText ?? Model.Name)" title="@pictures[0].Title" fetchpriority="high" />
+                        </div>
+                    }
+                    else
+                    {
+                        @* no photo yet: LED-panel placeholder (add a picture in Admin › Catalog › Products › Pictures) *@
+                        <div class="at-screen"><div class="at-screen__panel"><div class="at-screen__meta"><span>● AL THAMIN</span><span>@(parentCategory?.Name.ToUpperInvariant())</span></div><div class="at-screen__headline">@Model.Name</div><div class="at-screen__bars"><span></span><span></span><span></span></div></div></div>
+                    }
+                    @if (pictures.Count > 1)
+                    {
+                        <div class="at-gallery__thumbs">
+                            @foreach (var picture in pictures)
+                            {
+                                <button type="button" class="at-gallery__thumb" data-full="@picture.FullSizeImageUrl" data-alt="@picture.AlternateText" aria-label="Show image: @picture.AlternateText">
+                                    <img src="@picture.ThumbImageUrl" alt="" loading="lazy" />
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="at-product__summary">
+                    @if (parentCategory is not null)
+                    {
+                        <span class="at-eyebrow at-eyebrow--deep">@parentCategory.Name.ToUpperInvariant()</span>
+                    }
+                    <h1 class="at-product__title">@Model.Name</h1>
+                    @if (!string.IsNullOrEmpty(description))
+                    {
+                        <p class="at-product__lead">@description</p>
+                    }
+
+                    @if (Model.ProductSpecificationModel.Groups.SelectMany(g => g.Attributes).Any())
+                    {
+                        <dl class="at-keyspecs">
+                            @foreach (var spec in Model.ProductSpecificationModel.Groups.SelectMany(g => g.Attributes).Take(4))
+                            {
+                                <div>
+                                    <dt>@spec.Name</dt>
+                                    <dd>@Html.Raw(string.Join(", ", spec.Values.Select(v => v.ValueRaw)))</dd>
+                                </div>
+                            }
+                        </dl>
+                    }
+
+                    <p class="at-product__price"><strong>Price on request</strong> <span>· depends on size, pixel pitch and site</span></p>
+                    <div class="at-actions at-actions--fill">
+                        <a class="at-btn at-btn--dark at-btn--lg" href="/contact/?subject=@Uri.EscapeDataString(Model.Name)">Request a quote</a>
+                        <a class="at-btn at-btn--primary at-btn--lg" href="@waQuote" target="_blank" rel="noopener">WhatsApp this product</a>
+                    </div>
+                    <ul class="at-trust">
+                        <li>Free site survey in Dubai &amp; Sharjah</li>
+                        <li>Installed by our own team</li>
+                        <li>Maintenance contracts</li>
+                    </ul>
+                    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductDetailsOverviewBottom, additionalData = Model })
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <nav class="at-subnav" aria-label="On this page">
+        <div class="at-container">
+            <a href="#overview">Overview</a>
+            @if (Model.ProductSpecificationModel.Groups.SelectMany(g => g.Attributes).Any())
+            {
+                <a href="#specs">Specifications</a>
+            }
+            @if ((Model.FullDescription ?? string.Empty).Contains("<details>"))
+            {
+                <a href="#faq">FAQ</a>
+            }
+            <a href="#install">Installation</a>
+            @if (related.Count > 0)
+            {
+                <a href="#related">Related</a>
+            }
+        </div>
+    </nav>
+
+    @* ===== PAGE COPY: first block + quote card, then one band per H2 (shared with service pages) ===== *@
+    @{
+        var copyViewData = new ViewDataDictionary(ViewData)
+        {
+            ["QuoteTitle"] = $"Get a quote for {Model.Name}",
+            ["QuoteSubject"] = Model.Name,
+            ["BackLinkText"] = parentCategory is null ? null : $"All {parentCategory.Name} →",
+            ["BackLinkUrl"] = parentCategory is null ? null : await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = parentCategory.SeName })
+        };
+    }
+    @await Html.PartialAsync("_AlThamin.CopySections", Model.FullDescription, copyViewData)
+
+    @if (Model.ProductSpecificationModel.Groups.SelectMany(g => g.Attributes).Any())
+    {
+        <section id="specs" class="at-band at-band--light at-band--tight">
+            <div class="at-container at-specs">
+                @await Html.PartialAsync("_ProductSpecifications", Model.ProductSpecificationModel)
+            </div>
+        </section>
+    }
+
+    @* ===== INSTALLATION ===== *@
+    <section id="install" class="at-band at-band--panel">
+        <div class="at-container">
+            <div class="at-section-head at-section-head--stack">
+                <span class="at-eyebrow">FROM SURVEY TO SWITCH-ON</span>
+                <h2 class="at-h2 at-h2--sm">How we deliver your @Model.Name</h2>
+            </div>
+            <ol class="at-steps">
+                <li><span>01</span><h3>Site survey</h3><p>We visit, measure and check viewing distance, power and structure.</p></li>
+                <li><span>02</span><h3>Design &amp; quote</h3><p>Screen size, pixel pitch, mounting and software in one clear quote.</p></li>
+                <li><span>03</span><h3>Installation</h3><p>Our own team installs, wires and calibrates the screen.</p></li>
+                <li><span>04</span><h3>Content &amp; support</h3><p>Screendrive set-up, training and maintenance contracts.</p></li>
+            </ol>
+        </div>
+    </section>
+
+    @* ===== RELATED ===== *@
+    @if (related.Count > 0)
+    {
+        <section id="related" class="at-band at-band--light">
+            <div class="at-container">
+                <div class="at-section-head">
+                    <div><h2 class="at-h2 at-h2--sm">More from @parentCategory.Name</h2></div>
+                    <a class="at-link" href="@(await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = parentCategory.SeName }))">See all →</a>
+                </div>
+                <div class="at-cards">
+                    @foreach (var item in related)
+                    {
+                        var itemUrl = await NopUrl.RouteGenericUrlAsync<Product>(new { SeName = item.SeName });
+                        var picture = item.PictureModels.FirstOrDefault();
+                        <a class="at-card" href="@itemUrl">
+                            @if (!string.IsNullOrEmpty(picture?.ImageUrl) && !picture.ImageUrl.Contains("default-image"))
+                            {
+                                <img class="at-card__img" src="@picture.ImageUrl" alt="@picture.AlternateText" loading="lazy" />
+                            }
+                            @if (!string.IsNullOrEmpty(item.ShortDescription))
+                            {
+                                <span class="at-card__num">@Html.Raw(item.ShortDescription)</span>
+                            }
+                            <h3 class="at-card__title">@item.Name</h3>
+                            <span class="at-card__path">@itemUrl</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    <section class="at-cta">
+        <div class="at-container at-cta__inner">
+            <h2>Planning a @Model.Name? Book a free site survey.</h2>
+            <div class="at-actions">
+                <a class="at-btn at-btn--dark at-btn--lg" href="@waQuote" target="_blank" rel="noopener">WhatsApp us</a>
+                <a class="at-btn at-btn--outline-dark at-btn--lg" href="tel:+971521847186">Call +971 52 184 7186</a>
+            </div>
+        </div>
+    </section>
+
+    @await Component.InvokeAsync(typeof(WidgetViewComponent), new { widgetZone = PublicWidgetZones.ProductDetailsBottom, additionalData = Model })
+</div>
+
+<script asp-location="Footer">
+    document.querySelectorAll('.at-gallery__thumb').forEach(function (thumb) {
+        thumb.addEventListener('click', function () {
+            var main = document.getElementById('at-gallery-main');
+            main.src = thumb.getAttribute('data-full');
+            main.alt = thumb.getAttribute('data-alt') || '';
+        });
+    });
+</script>
