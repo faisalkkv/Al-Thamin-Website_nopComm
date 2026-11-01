@@ -424,9 +424,8 @@ EXTRA_POSTS = [{
     "metaTitle": "Lift Screen Benefits for Real Estate & Hotels in Dubai",
     "metaDescription": "Lift screens for Dubai, Abu Dhabi and Sharjah buildings and hotels: instant notices, ad revenue, guest upsells and Arabic/English content. See 10 key benefits.",
     "tags": ["Lift Screens Dubai", "Real Estate Digital Signage", "Hotel Digital Signage"],
-    "createdOnUtc": "2026-11-01T00:00:00+00:00",
-    # Thursday 5 November 2026, 09:00 UAE (UTC+4)
-    "startDateUtc": "2026-11-05T05:00:00+00:00",
+    # published 1 November 2026 (add "startDateUtc" to schedule a post instead)
+    "createdOnUtc": "2026-11-01T06:00:00+00:00",
 }]
 for extra in EXTRA_POSTS:
     html_file = os.path.join(POSTS_DIR, extra["slug"] + ".html")
