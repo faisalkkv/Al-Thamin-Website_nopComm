@@ -417,11 +417,22 @@ EXTRA_POSTS = [{
     "metaDescription": "Al Thamin installed 12 LG webOS digital menu screens with Screendrive for Acai Berry at Mirdif Avenue Mall, Dubai Design District and Al Qana, Abu Dhabi — in 5 days.",
     "tags": ["case-study", "Digital Menu Dubai", "LG webOS Signage", "Restaurant Digital Signage"],
     "createdOnUtc": "2026-11-01T00:00:00+00:00",
+}, {
+    "slug": "lift-screen-benefits-real-estate-hotels-dubai",
+    "section": "blog",
+    "title": "Lift Screens for Real Estate and Hotels in Dubai: 10 Benefits for Owners and Guests",
+    "metaTitle": "Lift Screen Benefits for Real Estate & Hotels in Dubai",
+    "metaDescription": "Lift screens for Dubai, Abu Dhabi and Sharjah buildings and hotels: instant notices, ad revenue, guest upsells and Arabic/English content. See 10 key benefits.",
+    "tags": ["Lift Screens Dubai", "Real Estate Digital Signage", "Hotel Digital Signage"],
+    "createdOnUtc": "2026-11-01T00:00:00+00:00",
+    # Thursday 5 November 2026, 09:00 UAE (UTC+4)
+    "startDateUtc": "2026-11-05T05:00:00+00:00",
 }]
 for extra in EXTRA_POSTS:
     html_file = os.path.join(POSTS_DIR, extra["slug"] + ".html")
     if os.path.exists(html_file):
-        seed["blogPosts"].append({"legacyPath": "/case-study/" + extra["slug"] + "/", "picture": "",
+        section = extra.pop("section", "case-study")
+        seed["blogPosts"].append({"legacyPath": f"/{section}/{extra['slug']}/", "picture": "",
                                   "body": open(html_file, encoding="utf-8").read().strip(), **extra})
 
 json.dump(seed, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)

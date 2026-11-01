@@ -50,6 +50,7 @@ public partial class ContentImporter
         public bool IncludeInSitemap { get; set; }
         public List<string> Tags { get; set; } = [];
         public string CreatedOnUtc { get; set; }
+        public string StartDateUtc { get; set; }
     }
 
     public class Seed
@@ -362,6 +363,8 @@ public partial class ContentImporter
             post.AllowComments = false;
             post.IncludeInSitemap = true;
             post.CreatedOnUtc = ParseUtc(item.CreatedOnUtc);
+            //scheduled posts stay hidden (page, lists, sitemap) until their start date
+            post.StartDateUtc = string.IsNullOrEmpty(item.StartDateUtc) ? null : ParseUtc(item.StartDateUtc);
 
             if (isNew)
                 await _blogService.InsertBlogPostAsync(post);
