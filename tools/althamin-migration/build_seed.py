@@ -407,5 +407,22 @@ for path, p in pages.items():
         "metaTitle": meta_title(path), "metaDescription": p["metaDescription"] or META.get(path, ""), "picture": p["ogImage"],
         "tags": tags, "createdOnUtc": p["published"] or "2025-01-01T00:00:00+00:00", "body": fix_links(p["body"], article=True),
     })
+# case studies written after the migration: posts/<slug>.html next to this script
+import os
+POSTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "posts")
+EXTRA_POSTS = [{
+    "slug": "acai-berry-digital-menu-boards-dubai-abu-dhabi",
+    "title": "Digital Menu Boards for Acai Berry: 12 LG webOS Screens Across 3 UAE Outlets",
+    "metaTitle": "Acai Berry Digital Menu Boards, Dubai & Abu Dhabi",
+    "metaDescription": "Al Thamin installed 12 LG webOS digital menu screens with Screendrive for Acai Berry at Mirdif Avenue Mall, Dubai Design District and Al Qana, Abu Dhabi — in 5 days.",
+    "tags": ["case-study", "Digital Menu Dubai", "LG webOS Signage", "Restaurant Digital Signage"],
+    "createdOnUtc": "2026-11-01T00:00:00+00:00",
+}]
+for extra in EXTRA_POSTS:
+    html_file = os.path.join(POSTS_DIR, extra["slug"] + ".html")
+    if os.path.exists(html_file):
+        seed["blogPosts"].append({"legacyPath": "/case-study/" + extra["slug"] + "/", "picture": "",
+                                  "body": open(html_file, encoding="utf-8").read().strip(), **extra})
+
 json.dump(seed, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print({k: len(v) for k, v in seed.items()})

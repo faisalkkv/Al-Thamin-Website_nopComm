@@ -86,6 +86,27 @@
         }
     }));
 
+    //FAQPage JSON-LD from accordion questions in the post body
+    var faqItems = Regex.Matches(Model.Body ?? string.Empty, "<details>\\s*<summary>(.*?)</summary>(.*?)</details>", RegexOptions.Singleline);
+    if (faqItems.Count > 0)
+    {
+        NopHtml.AddJsonLdParts(JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "FAQPage",
+            ["mainEntity"] = faqItems.Select(item => new Dictionary<string, object>
+            {
+                ["@type"] = "Question",
+                ["name"] = System.Net.WebUtility.HtmlDecode(Regex.Replace(item.Groups[1].Value, "<[^>]+>", string.Empty)).Trim(),
+                ["acceptedAnswer"] = new Dictionary<string, object>
+                {
+                    ["@type"] = "Answer",
+                    ["text"] = System.Net.WebUtility.HtmlDecode(Regex.Replace(Regex.Replace(item.Groups[2].Value, "<[^>]+>", " "), "\\s+", " ")).Trim()
+                }
+            }).ToList()
+        }));
+    }
+
     //keep reading: the newest other posts
     var store = await storeContext.GetCurrentStoreAsync();
     var language = await workContext.GetWorkingLanguageAsync();

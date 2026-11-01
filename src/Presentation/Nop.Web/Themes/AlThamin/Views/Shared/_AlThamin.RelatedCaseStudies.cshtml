@@ -1,0 +1,71 @@
+@model string
+
+@using System.Text.RegularExpressions
+@using Nop.Core
+@using Nop.Core.Domain.Blogs
+@using Nop.Services.Blogs
+@using Nop.Services.Seo
+
+@inject IBlogService blogService
+@inject IStoreContext storeContext
+@inject IWorkContext workContext
+@inject IUrlRecordService urlRecordService
+
+@*
+    "Case studies" band for service and topic pages: lists every case study (blog post tagged "case-study")
+    whose body links to this page's URL (Model = the page's legacy path, e.g. /service/digital-menu-solutions-dubai/).
+*@
+@{
+    var path = Model ?? string.Empty;
+    var related = new List<(string Title, string Url, string Excerpt, string Image)>();
+    if (!string.IsNullOrEmpty(path))
+    {
+        var store = await storeContext.GetCurrentStoreAsync();
+        var language = await workContext.GetWorkingLanguageAsync();
+        foreach (var post in await blogService.GetAllBlogPostsAsync(store.Id, language.Id))
+        {
+            var isCaseStudy = (await blogService.ParseTagsAsync(post)).Any(tag => tag.Trim().Equals("case-study", StringComparison.OrdinalIgnoreCase));
+            if (!isCaseStudy || (post.Body ?? string.Empty).IndexOf($"href=\"{path}\"", StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            var url = await NopUrl.RouteGenericUrlAsync<BlogPost>(new { SeName = await urlRecordService.GetSeNameAsync(post, post.LanguageId, ensureTwoPublishedLanguages: false) });
+            var image = Regex.Match(post.Body ?? string.Empty, "<img[^>]+src=\"([^\"]+)\"", RegexOptions.IgnoreCase).Groups[1].Value;
+            related.Add((post.Title, url, post.BodyOverview, image));
+        }
+    }
+}
+
+@if (related.Count > 0)
+{
+    <section class="at-band at-band--white at-related-cases">
+        <div class="at-container">
+            <div class="at-section-head">
+                <div>
+                    <span class="at-eyebrow at-eyebrow--deep">CASE STUDY</span>
+                    <h2 class="at-h2 at-h2--sm">See it in action</h2>
+                </div>
+                <a class="at-link" href="/category/case-study/">All case studies →</a>
+            </div>
+            <div class="at-related-cases__grid">
+                @foreach (var (title, url, excerpt, image) in related)
+                {
+                    <a class="at-related-case" href="@url">
+                        @if (!string.IsNullOrEmpty(image))
+                        {
+                            <img src="@image" alt="" loading="lazy" />
+                        }
+                        <span class="at-related-case__copy">
+                            <span class="at-postcard__meta">CASE STUDY</span>
+                            <strong>@title</strong>
+                            @if (!string.IsNullOrEmpty(excerpt))
+                            {
+                                <span>@excerpt</span>
+                            }
+                            <em>Read the case study →</em>
+                        </span>
+                    </a>
+                }
+            </div>
+        </div>
+    </section>
+}

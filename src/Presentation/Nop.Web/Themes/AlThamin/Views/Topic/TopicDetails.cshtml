@@ -141,6 +141,12 @@
         </div>
     </section>
 
+    @* case studies that link to this page *@
+    @if (isLanding)
+    {
+        @await Html.PartialAsync("_AlThamin.RelatedCaseStudies", await NopUrl.RouteGenericUrlAsync<Topic>(new { SeName = Model.SeName }))
+    }
+
     @if (system == "DigitalSignageSoftware")
     {
         <section class="at-band at-band--light">

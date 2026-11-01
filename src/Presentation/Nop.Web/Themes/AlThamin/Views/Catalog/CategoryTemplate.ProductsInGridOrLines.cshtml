@@ -338,6 +338,9 @@
         }
         @await Html.PartialAsync("_AlThamin.CopySections", copyHtml, copyViewData)
 
+        @* ===== CASE STUDIES that link to this service ===== *@
+        @await Html.PartialAsync("_AlThamin.RelatedCaseStudies", await NopUrl.RouteGenericUrlAsync<Category>(new { SeName = Model.SeName }))
+
         @* ===== LOCAL SEO BLOCK ===== *@
         <section class="at-band at-band--panel">
             <div class="at-container">
