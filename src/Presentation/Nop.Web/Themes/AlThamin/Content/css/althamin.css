@@ -1026,3 +1026,11 @@ a.at-office__map:hover { border-color: var(--at-green); }
 .at-related-case__copy > span:not(.at-postcard__meta) { font-size: 15px; line-height: 1.5; color: var(--at-muted-2); }
 .at-related-case__copy em { font-style: normal; font-weight: 700; color: var(--at-green); }
 @media (prefers-reduced-motion: reduce) { .at-related-case { transition: none; } .at-related-case:hover { transform: none; } }
+
+/* case study photos */
+.at-prose .at-cs-figure { margin: 24px 0 0; }
+.at-prose .at-cs-figure img { display: block; width: 100%; height: auto; border-radius: 18px; }
+.at-prose .at-cs-figure figcaption, .at-prose .at-cs-gallery + p { font-size: 14px; color: var(--at-body); }
+.at-prose .at-cs-figure figcaption { padding-top: 10px; }
+.at-prose .at-cs-gallery { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 0 0 32px; }
+.at-prose .at-cs-gallery img { aspect-ratio: 16 / 10; }
