@@ -1049,3 +1049,6 @@ a.at-office__map:hover { border-color: var(--at-green); }
 .at-post-body__text.at-prose .at-feature-grid,
 .at-post-body__text.at-prose .at-feature-grid:has(> :nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media all and (max-width: 640px) { .at-post-body__text.at-prose .at-feature-grid { grid-template-columns: 1fr; } }
+/* tall (portrait) article photos, e.g. a kiosk standee: show the whole photo, narrower and centred */
+.at-post-body__text.at-prose .at-cs-figure--portrait { max-width: 400px; margin-left: auto; margin-right: auto; }
+.at-post-body__text.at-prose .at-cs-figure--portrait img { max-height: none; }

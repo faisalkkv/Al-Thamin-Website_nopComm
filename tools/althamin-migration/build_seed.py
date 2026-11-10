@@ -426,6 +426,15 @@ EXTRA_POSTS = [{
     "tags": ["Lift Screens Dubai", "Real Estate Digital Signage", "Hotel Digital Signage"],
     # published 1 November 2026 (add "startDateUtc" to schedule a post instead)
     "createdOnUtc": "2026-11-01T06:00:00+00:00",
+}, {
+    "slug": "digital-kiosk-screen-benefits-dubai-uae",
+    "section": "blog",
+    "title": "Digital Kiosk Screens in Dubai and the UAE: 10 Benefits for Your Business",
+    "metaTitle": "Digital Kiosk Screen Benefits in Dubai & UAE",
+    "metaDescription": "10 benefits of digital kiosk screens in Dubai, Abu Dhabi and Sharjah: instant updates, Arabic/English content, self-service and lower print costs.",
+    "tags": ["Digital Kiosk Dubai", "Digital Standee UAE", "Freestanding Digital Signage"],
+    # published 10 November 2026
+    "createdOnUtc": "2026-11-10T06:00:00+00:00",
 }]
 for extra in EXTRA_POSTS:
     html_file = os.path.join(POSTS_DIR, extra["slug"] + ".html")
